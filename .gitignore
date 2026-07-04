@@ -1,0 +1,37 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+build/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+pubspec.lock
+
+# Node / Web
+node_modules/
+dist/
+.next/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
