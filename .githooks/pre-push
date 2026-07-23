@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root/backend/minis-backend"
+
+if command -v bash >/dev/null 2>&1; then
+  bash ./mvnw --batch-mode --no-transfer-progress verify
+else
+  ./mvnw.cmd --batch-mode --no-transfer-progress verify
+fi

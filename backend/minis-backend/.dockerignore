@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+target
+*.iml
+*.log
+.env
+.env.*
+secrets
+**/secrets
+*service-account*.json
+*firebase-adminsdk*.json
+google-application-credentials*.json

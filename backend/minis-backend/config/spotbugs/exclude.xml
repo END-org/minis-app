@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!-- Spring owns and safely manages these singleton collaborators. -->
+  <Match>
+    <Class name="com.end.minisbackend.shared.error.ApiErrorWriter"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.shared.error.GlobalExceptionHandler"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.shared.security.JsonAccessDeniedHandler"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.shared.security.JsonAuthenticationEntryPoint"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+</FindBugsFilter>

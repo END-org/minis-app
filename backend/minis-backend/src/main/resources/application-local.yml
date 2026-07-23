@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5433}/${POSTGRES_DB:minis_local}
+    username: ${POSTGRES_USER:minis}
+    password: ${POSTGRES_PASSWORD:change-me-local}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${MINIS_SQL_LOGGING:false}
+    properties:
+      hibernate:
+        format_sql: ${MINIS_SQL_FORMAT:false}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  level:
+    com.end.minisbackend: DEBUG

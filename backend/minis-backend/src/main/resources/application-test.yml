@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:tc:postgresql:17-alpine:///minis_test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: minis
+    password: minis
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    com.end.minisbackend: INFO
+    org.testcontainers: INFO

@@ -5,6 +5,9 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+*.iws
+*.iml
+*.ipr
 
 # Java / Spring Boot
 target/
@@ -32,6 +35,12 @@ dist/
 .env
 .env.*
 !.env.example
+secrets/
+**/secrets/
+*service-account*.json
+*firebase-adminsdk*.json
+google-application-credentials*.json
 
 # Logs
 *.log
+logs/

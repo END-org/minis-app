@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         name="MINIS PMD rules"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.github.io/schema/ruleset_2_0_0.xsd">
+  <description>Focused maintainability and suspicious-code rules for the MINIS backend.</description>
+
+  <rule ref="category/java/bestpractices.xml/ConstantsInInterface"/>
+  <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+  <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod"/>
+  <rule ref="category/java/codestyle.xml/UnnecessaryImport"/>
+  <rule name="AvoidCatchingGenericException"
+        language="java"
+        message="Avoid catching generic exception types."
+        class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+    <description>
+      Broad catch clauses hide failure modes. Catch a specific checked exception, translate at a
+      top-level boundary, or preserve the root cause in an explicit application exception.
+    </description>
+    <priority>3</priority>
+    <properties>
+      <property name="xpath">
+        <value><![CDATA[
+          //CatchParameter[
+            ClassType[
+              pmd-java:typeIsExactly('java.lang.Exception')
+              or pmd-java:typeIsExactly('java.lang.RuntimeException')
+            ]
+          ]/VariableId
+        ]]></value>
+      </property>
+    </properties>
+  </rule>
+  <rule ref="category/java/errorprone.xml/AvoidCatchingThrowable"/>
+  <rule ref="category/java/errorprone.xml/AvoidInstanceofChecksInCatchClause"/>
+  <rule ref="category/java/errorprone.xml/BrokenNullCheck"/>
+  <rule ref="category/java/errorprone.xml/CloseResource"/>
+  <rule ref="category/java/errorprone.xml/DoNotThrowExceptionInFinally"/>
+  <rule ref="category/java/errorprone.xml/EmptyCatchBlock"/>
+  <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock"/>
+</ruleset>

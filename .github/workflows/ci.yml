@@ -1,0 +1,51 @@
+name: Backend quality gate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-quality-gate:
+    name: Backend quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run backend verification
+        working-directory: backend/minis-backend
+        run: bash ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            backend/minis-backend/target/surefire-reports/**
+            backend/minis-backend/target/failsafe-reports/**
+          if-no-files-found: ignore
