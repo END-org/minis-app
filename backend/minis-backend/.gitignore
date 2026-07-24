@@ -33,9 +33,10 @@ build/
 .vscode/
 
 ### Local configuration and secrets ###
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
 secrets/
 **/secrets/
 *service-account*.json
