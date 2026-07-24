@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, returns the shared JSON API error contract, propagates `X-Correlation-ID`, and denies local auth-lab/dev routes outside the `local` profile.
+The current backend slice verifies Firebase ID tokens, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local auth-lab/dev routes outside the `local` profile, and creates the identity schema through Flyway.
 
-Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, admin APIs, React, and Flyway migrations are not implemented in this baseline.
+Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, admin APIs, and React are not implemented in this baseline.
 
 ## Prerequisites
 
@@ -28,6 +28,8 @@ cp ../../.env.example ../../.env
 ```
 
 Spring Boot reads normal environment variables. Docker Compose reads the root `.env` file.
+
+The default local database name is `minis_event_local`, which is intentionally separate from older pre-Flyway development databases.
 
 Private Admin credential:
 
@@ -55,6 +57,8 @@ From the repository root:
 docker compose -f compose.local.yml up -d
 docker compose -f compose.local.yml down
 docker compose -f compose.local.yml down -v
+docker compose -f compose.demo.yml up -d --build
+docker compose -f compose.demo.yml down
 ```
 
 From `backend/minis-backend`:
@@ -77,6 +81,8 @@ Windows PowerShell equivalents:
 
 Run the local application only after PostgreSQL is available and `GOOGLE_APPLICATION_CREDENTIALS` plus Firebase Web SDK environment variables are set in the shell or IDE run configuration.
 
+The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO_MINIO_ROOT_USER`, `DEMO_MINIO_ROOT_PASSWORD`, `FIREBASE_PROJECT_ID`, and `GOOGLE_APPLICATION_CREDENTIALS` values.
+
 ## Local URLs
 
 - API base: `http://localhost:8080`
@@ -84,7 +90,9 @@ Run the local application only after PostgreSQL is available and `GOOGLE_APPLICA
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - Actuator health: `http://localhost:8080/actuator/health`
+- Actuator readiness: `http://localhost:8080/actuator/health/readiness`
 - MinIO console: `http://localhost:9001`
+- Demo reverse-proxy health: `http://localhost:8088/healthz`
 
 ## Manual Firebase Browser Test
 
@@ -116,13 +124,32 @@ Error Prone is not configured in this first slice because the local build is run
 
 ## Database Initialization
 
-Flyway is not installed yet. Current behavior is:
+Flyway is the source of truth for the physical schema. The initial identity migration is `src/main/resources/db/migration/V1__create_identity_user_accounts.sql`.
 
-- `local`: Hibernate `ddl-auto=update` against the local PostgreSQL service.
-- `test`: Hibernate `ddl-auto=create-drop` against PostgreSQL Testcontainers.
-- `prod`: Hibernate `ddl-auto=validate`; apply and review `../../database/schema-v1.sql` before deployment.
+- `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
+- `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.
+- `demo`: Flyway migrates the demo PostgreSQL service and Hibernate validates it.
+- `prod`: Flyway migrates the configured PostgreSQL database and Hibernate validates it.
 
-This is the repository truth for the current baseline. Future shared schema changes should move to Flyway forward migrations before product data is relied on.
+Hibernate schema generation modes `update`, `create`, and `create-drop` are not used by application profiles. Flyway `baselineOnMigrate` is not enabled globally, and Flyway clean is disabled during application startup.
+
+### Old-Volume Policy
+
+Phase 1 expects a dedicated clean event database. Unknown Hibernate-created schemas are not adopted silently. Recreate disposable local PostgreSQL and MinIO volumes with:
+
+```bash
+docker compose -f compose.local.yml down -v
+docker compose -f compose.local.yml up -d
+```
+
+Recreate disposable demo volumes with:
+
+```bash
+docker compose -f compose.demo.yml down -v
+docker compose -f compose.demo.yml up -d --build
+```
+
+Preserving an old database requires a separate backup, migration rehearsal, and Flyway baseline decision before pointing the application at it.
 
 ## Environment Assumptions
 

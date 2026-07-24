@@ -9,7 +9,9 @@ MINIS is a mobile-first platform for vertical short films and useful mini-conten
 - Current implemented slice: Firebase ID-token verification boundary, local MINIS user bootstrap, `/api/v1/auth/bootstrap`, `/api/v1/me`, shared API errors, correlation IDs, OpenAPI configuration, and security tests.
 - Placeholder clients: `mobile/flutter` and `web/admin`.
 - Local Docker services: PostgreSQL and MinIO in `compose.local.yml`.
-- Deferred in this baseline: React event client, Flyway migrations, media upload, feed/content, social interactions, notifications, reports, analytics, chat, and admin product features.
+- Demo deployment skeleton: PostgreSQL, MinIO, Spring Boot backend, and NGINX reverse proxy in `compose.demo.yml`.
+- Database schema: Flyway migration `V1__create_identity_user_accounts.sql`; Hibernate validates the migrated schema.
+- Deferred in this baseline: React event client, media upload, feed/content, social interactions, notifications, reports, analytics, chat, and admin product features.
 
 ## Quick Local Backend Start
 
@@ -33,6 +35,23 @@ Set-Location backend/minis-backend
 
 Local startup requires a Firebase development project and `GOOGLE_APPLICATION_CREDENTIALS` pointing to a Firebase Admin JSON outside the repository.
 
+Fresh Phase 1 local databases use `minis_event_local`. If an older disposable local volume was created before Flyway, recreate it explicitly:
+
+```bash
+docker compose -f compose.local.yml down -v
+docker compose -f compose.local.yml up -d
+```
+
+## Demo Deployment Entry Point
+
+The demo topology is production-like and requires explicit secret-bearing environment values:
+
+```bash
+docker compose -f compose.demo.yml up -d --build
+```
+
+Backend readiness is exposed through the reverse proxy at `http://localhost:8088/healthz`.
+
 ## Verification
 
 From `backend/minis-backend`:
@@ -49,4 +68,4 @@ Windows PowerShell:
 .\mvnw.cmd --batch-mode --no-transfer-progress verify
 ```
 
-See `AGENTS.md` for repository-local engineering rules and `backend/minis-backend/README.md` for backend setup, Firebase auth testing, local URLs, and troubleshooting.
+See `AGENTS.md` for repository-local engineering rules, `docs/getting-started.md` for local setup, `docs/deployment.md` for the demo topology, and `backend/minis-backend/README.md` for backend setup, Firebase auth testing, local URLs, and troubleshooting.

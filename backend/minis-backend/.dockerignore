@@ -4,7 +4,7 @@
 target
 *.iml
 *.log
-.env
+../../.env
 .env.*
 secrets
 **/secrets

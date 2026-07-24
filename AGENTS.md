@@ -6,6 +6,7 @@
 - Current Java package root: `com.end.minisbackend`.
 - Current clients: placeholders under `mobile/flutter` and `web/admin`; the React event client is not present yet.
 - Local infrastructure: PostgreSQL and MinIO are defined in `compose.local.yml`.
+- Demo infrastructure: PostgreSQL, MinIO, Spring Boot, and NGINX are defined in `compose.demo.yml`.
 
 ## Architecture
 
@@ -48,8 +49,11 @@
 - Do not perform Firebase, MinIO, FFmpeg, reverse-proxy, or other slow external I/O inside long database transactions.
 - Persist server timestamps as UTC `Instant`; use an injectable `Clock` for time-dependent business decisions.
 - PostgreSQL is the application database. Tests that prove persistence behavior must run against PostgreSQL/Testcontainers, not H2.
-- Current baseline has manual `database/schema-v1.sql`, local `ddl-auto=update`, test `ddl-auto=create-drop`, and prod `ddl-auto=validate`.
-- When Flyway is introduced, every shared schema change after the baseline must be a forward migration; do not edit applied migrations.
+- Flyway migrations under `backend/minis-backend/src/main/resources/db/migration` are the executable schema source of truth.
+- Hibernate must validate the migrated schema in local, test, demo, and production-like profiles. Do not use `ddl-auto=update`, `create`, or `create-drop`.
+- Every shared schema change after the Phase 1 baseline must be a forward migration; do not edit applied migrations.
+- Do not enable global Flyway `baselineOnMigrate` or destructive Flyway clean during application startup.
+- Unknown older Hibernate-created schemas must not be silently adopted. Use a dedicated clean event database or rehearse an explicit baseline separately.
 
 ## Authentication and Authorization
 

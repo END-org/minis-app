@@ -10,11 +10,19 @@ spring:
     default-property-inclusion: non_null
 
   jpa:
+    hibernate:
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
 
   lifecycle:
     timeout-per-shutdown-phase: 30s
@@ -77,3 +85,6 @@ minis:
       project-id: ${FIREBASE_PROJECT_ID:}
       app-id: ${FIREBASE_WEB_APP_ID:}
       storage-bucket: ${FIREBASE_WEB_STORAGE_BUCKET:}
+
+  http:
+    allowed-origins: []

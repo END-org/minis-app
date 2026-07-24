@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MINIS Event Gateway</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f7f7f3;
+        color: #151718;
+      }
+
+      main {
+        max-width: 42rem;
+        padding: 3rem 1.5rem;
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: 2.25rem;
+        line-height: 1;
+      }
+
+      p {
+        margin: 0 0 1.25rem;
+        color: #4a5357;
+        font-size: 1.1rem;
+        line-height: 1.6;
+      }
+
+      a {
+        color: #0f766e;
+        font-weight: 700;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #111312;
+          color: #f5f5ef;
+        }
+
+        p {
+          color: #b6bfbc;
+        }
+
+        a {
+          color: #5eead4;
+        }
+      }
+
+      @media (min-width: 48rem) {
+        h1 {
+          font-size: 4rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>MINIS event gateway</h1>
+      <p>
+        The backend is served through the demo reverse proxy. The React event client will replace
+        this diagnostic page in Phase 2.
+      </p>
+      <p><a href="/healthz">Backend readiness health</a></p>
+    </main>
+  </body>
+</html>

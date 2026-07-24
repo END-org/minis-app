@@ -4,7 +4,7 @@ services:
     container_name: minis-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-minis_local}
+      POSTGRES_DB: ${POSTGRES_DB:-minis_event_local}
       POSTGRES_USER: ${POSTGRES_USER:-minis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local}
     ports:
@@ -12,7 +12,7 @@ services:
     volumes:
       - minis_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minis} -d ${POSTGRES_DB:-minis_local}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minis} -d ${POSTGRES_DB:-minis_event_local}"]
       interval: 10s
       timeout: 5s
       retries: 5

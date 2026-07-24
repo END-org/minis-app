@@ -1,11 +1,11 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5433}/${POSTGRES_DB:minis_local}
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5433}/${POSTGRES_DB:minis_event_local}
     username: ${POSTGRES_USER:minis}
     password: ${POSTGRES_PASSWORD:change-me-local}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: ${MINIS_SQL_LOGGING:false}
     properties:
       hibernate:

@@ -58,6 +58,11 @@ class SecurityIntegrationTest {
   }
 
   @Test
+  void readinessHealthEndpointIsPublic() throws Exception {
+    mockMvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk());
+  }
+
+  @Test
   void protectedMeRequiresBearerToken() throws Exception {
     mockMvc
         .perform(get("/api/v1/me").header(CorrelationId.HEADER_NAME, "phase-zero-correlation"))

@@ -33,6 +33,7 @@ dist/
 
 # Env
 backend/minis-backend/.env
+.env
 .env.*
 !.env.example
 secrets/
