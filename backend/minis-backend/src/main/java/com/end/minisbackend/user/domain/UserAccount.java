@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -100,19 +102,33 @@ public class UserAccount {
       String displayName,
       String avatarUrl,
       Instant now) {
+    return create(firebaseUid, email, emailVerified, displayName, avatarUrl, UserRole.VIEWER, now);
+  }
+
+  public static UserAccount create(
+      String firebaseUid,
+      String email,
+      boolean emailVerified,
+      String displayName,
+      String avatarUrl,
+      UserRole role,
+      Instant now) {
     String boundedFirebaseUid = requiredBounded(firebaseUid, FIREBASE_UID_MAX);
     String boundedEmail = bounded(email, EMAIL_MAX);
     String boundedDisplayName = bounded(displayName, DISPLAY_NAME_MAX);
-    String boundedAvatarUrl = bounded(avatarUrl, AVATAR_URL_MAX);
+    String boundedAvatarUrl = boundedHttpUrl(avatarUrl, AVATAR_URL_MAX);
     Instant createdAt = Objects.requireNonNull(now, "now is required");
-    return new UserAccount(
-        UUID.randomUUID(),
-        boundedFirebaseUid,
-        boundedEmail,
-        emailVerified,
-        boundedDisplayName,
-        boundedAvatarUrl,
-        createdAt);
+    UserAccount account =
+        new UserAccount(
+            UUID.randomUUID(),
+            boundedFirebaseUid,
+            boundedEmail,
+            emailVerified,
+            boundedDisplayName,
+            boundedAvatarUrl,
+            createdAt);
+    account.role = Objects.requireNonNull(role, "role is required");
+    return account;
   }
 
   public void synchronizeTrustedIdentity(
@@ -123,14 +139,49 @@ public class UserAccount {
       this.displayName = bounded(displayName, DISPLAY_NAME_MAX);
     }
     if (!StringUtils.hasText(this.avatarUrl) && StringUtils.hasText(avatarUrl)) {
-      this.avatarUrl = bounded(avatarUrl, AVATAR_URL_MAX);
+      this.avatarUrl = boundedHttpUrl(avatarUrl, AVATAR_URL_MAX);
     }
     this.lastAuthenticatedAt = now;
     this.updatedAt = now;
   }
 
+  public void grantCreator(Instant now) {
+    if (role == UserRole.ADMIN) {
+      throw new IllegalStateException("ADMIN role cannot be changed through creator role flow");
+    }
+    this.role = UserRole.CREATOR;
+    this.updatedAt = Objects.requireNonNull(now, "now is required");
+  }
+
+  public void revokeCreator(Instant now) {
+    if (role == UserRole.ADMIN) {
+      throw new IllegalStateException("ADMIN role cannot be changed through creator role flow");
+    }
+    this.role = UserRole.VIEWER;
+    this.updatedAt = Objects.requireNonNull(now, "now is required");
+  }
+
+  public boolean promoteToAdmin(Instant now) {
+    if (role == UserRole.ADMIN) {
+      return false;
+    }
+    this.role = UserRole.ADMIN;
+    this.updatedAt = Objects.requireNonNull(now, "now is required");
+    return true;
+  }
+
   public void suspend() {
     this.status = AccountStatus.SUSPENDED;
+  }
+
+  public void suspend(Instant now) {
+    this.status = AccountStatus.SUSPENDED;
+    this.updatedAt = Objects.requireNonNull(now, "now is required");
+  }
+
+  public void reactivate(Instant now) {
+    this.status = AccountStatus.ACTIVE;
+    this.updatedAt = Objects.requireNonNull(now, "now is required");
   }
 
   public void disable() {
@@ -139,7 +190,7 @@ public class UserAccount {
 
   public void updateProfile(String displayName, String avatarUrl, String bio, Instant now) {
     this.displayName = bounded(displayName, DISPLAY_NAME_MAX);
-    this.avatarUrl = bounded(avatarUrl, AVATAR_URL_MAX);
+    this.avatarUrl = boundedHttpUrl(avatarUrl, AVATAR_URL_MAX);
     this.bio = bounded(bio, BIO_MAX);
     this.updatedAt = now;
   }
@@ -208,5 +259,24 @@ public class UserAccount {
       return trimmed;
     }
     return trimmed.substring(0, maxLength);
+  }
+
+  private static String boundedHttpUrl(String value, int maxLength) {
+    String boundedValue = bounded(value, maxLength);
+    if (boundedValue == null) {
+      return null;
+    }
+    try {
+      URI uri = new URI(boundedValue);
+      String scheme = uri.getScheme();
+      if (scheme == null
+          || (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme))
+          || !StringUtils.hasText(uri.getHost())) {
+        throw new IllegalArgumentException("avatarUrl must be an absolute HTTP(S) URL");
+      }
+      return boundedValue;
+    } catch (URISyntaxException exception) {
+      throw new IllegalArgumentException("avatarUrl must be an absolute HTTP(S) URL", exception);
+    }
   }
 }

@@ -9,6 +9,7 @@ import {
   AuthSessionContext,
   type AuthSessionContextValue,
 } from "../core/auth/AuthSessionContext";
+import { BackendSessionProvider } from "../features/account/BackendSessionContext";
 
 interface RenderOptions {
   readonly apiClient?: ApiClient;
@@ -31,7 +32,9 @@ export function renderWithProviders(
     <QueryClientProvider client={queryClient}>
       <AuthSessionContext.Provider value={createAuthSession(auth)}>
         <ApiClientContext.Provider value={apiClient}>
-          <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+          <BackendSessionProvider>
+            <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+          </BackendSessionProvider>
         </ApiClientContext.Provider>
       </AuthSessionContext.Provider>
     </QueryClientProvider>,
@@ -41,23 +44,50 @@ export function renderWithProviders(
 export function createAuthSession(
   overrides: Partial<AuthSessionContextValue> = {},
 ): AuthSessionContextValue {
+  const currentUser = overrides.currentUser ?? (() => overrides.user ?? null);
   return {
     user: null,
     loading: false,
+    sessionVersion: 0,
     setupError: null,
     sessionNotice: null,
-    signInWithEmail: () => Promise.resolve(),
+    registerWithEmail: () =>
+      Promise.resolve({ displayNameUpdated: true, verificationEmailSent: true }),
+    signInWithEmail: () => Promise.resolve(createFirebaseUser()),
+    signInWithGoogle: () => Promise.resolve(createFirebaseUser()),
     signOut: () => Promise.resolve(),
-    reloadCurrentUser: () => Promise.resolve(),
+    reloadCurrentUser: () => Promise.resolve(createFirebaseUser()),
+    refreshCurrentToken: () => Promise.resolve(),
+    sendCurrentUserVerificationEmail: () => Promise.resolve(),
+    sendPasswordResetEmail: () => Promise.resolve(),
     expireAuthenticatedSession: () => Promise.resolve(),
     clearSessionNotice: () => undefined,
+    currentUser,
     ...overrides,
   };
 }
 
-export function createFirebaseUser(): User {
+interface CreateFirebaseUserOptions {
+  readonly email?: string | null;
+  readonly emailVerified?: boolean;
+  readonly providerId?: string;
+  readonly token?: string;
+  readonly uid?: string;
+}
+
+export function createFirebaseUser({
+  email = "viewer@example.com",
+  emailVerified = true,
+  providerId = "password",
+  token = "test-token",
+  uid = "firebase-viewer",
+}: CreateFirebaseUserOptions = {}): User {
   return {
-    getIdToken: () => Promise.resolve("test-token"),
+    email,
+    emailVerified,
+    getIdToken: () => Promise.resolve(token),
+    providerData: [{ providerId }],
+    uid,
   } as unknown as User;
 }
 

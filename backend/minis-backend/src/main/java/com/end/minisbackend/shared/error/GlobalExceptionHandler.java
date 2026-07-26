@@ -1,5 +1,6 @@
 package com.end.minisbackend.shared.error;
 
+import com.end.minisbackend.shared.security.CorrelationId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ public class GlobalExceptionHandler {
   ResponseEntity<ApiErrorResponse> handleApiException(
       ApiException exception, HttpServletRequest request) {
     ApiErrorCode code = exception.errorCode();
+    logExpectedFailure(request, code, exception);
     return ResponseEntity.status(code.status()).body(errorWriter.responseFor(request, code));
   }
 
@@ -35,15 +37,48 @@ public class GlobalExceptionHandler {
   })
   ResponseEntity<ApiErrorResponse> handleValidation(HttpServletRequest request) {
     ApiErrorCode code = ApiErrorCode.VALIDATION_ERROR;
+    logExpectedFailure(request, code, null);
     return ResponseEntity.status(code.status()).body(errorWriter.responseFor(request, code));
   }
 
   @ExceptionHandler(RuntimeException.class)
   ResponseEntity<ApiErrorResponse> handleRuntimeException(
       RuntimeException exception, HttpServletRequest request) {
-    LOGGER.error(
-        "Unhandled runtime exception for request path {}", request.getRequestURI(), exception);
     ApiErrorCode code = ApiErrorCode.INTERNAL_ERROR;
+    LOGGER.error(
+        "event=api_request_failed correlationId={} method={} path={} status={} "
+            + "apiErrorCode={} exceptionCategory={}",
+        CorrelationId.fromRequest(request),
+        request.getMethod(),
+        request.getRequestURI(),
+        code.status().value(),
+        code.name(),
+        exception.getClass().getSimpleName(),
+        exception);
     return ResponseEntity.status(code.status()).body(errorWriter.responseFor(request, code));
+  }
+
+  private static void logExpectedFailure(
+      HttpServletRequest request, ApiErrorCode code, Exception exception) {
+    String exceptionCategory =
+        exception == null ? "validation" : exception.getClass().getSimpleName();
+    String message =
+        "event=api_request_failed correlationId={} method={} path={} status={} "
+            + "apiErrorCode={} exceptionCategory={}";
+    Object[] fields = {
+      CorrelationId.fromRequest(request),
+      request.getMethod(),
+      request.getRequestURI(),
+      code.status().value(),
+      code.name(),
+      exceptionCategory
+    };
+    if (code == ApiErrorCode.RESOURCE_CONFLICT
+        || code == ApiErrorCode.ACCESS_DENIED
+        || code.status().value() == 403) {
+      LOGGER.warn(message, fields);
+    } else {
+      LOGGER.info(message, fields);
+    }
   }
 }

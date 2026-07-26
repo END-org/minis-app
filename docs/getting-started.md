@@ -70,9 +70,29 @@ npm ci
 npm run dev
 ```
 
-The local app runs at `http://localhost:5173`. Keep `VITE_API_BASE_URL=http://localhost:8080` for local development. The backend `local` profile allows that origin by default.
+The local app runs at `http://localhost:5173` and uses Vite `strictPort`, so a port collision fails instead of silently moving to `5174`. Leave `VITE_API_BASE_URL` blank for local development; `/api` and `/actuator` requests are proxied by Vite to `MINIS_EVENT_APP_DEV_PROXY_TARGET`, which defaults to `http://localhost:8080`.
 
-Prepared-account passwords belong only in a private password manager or manual test notes outside Git.
+Expected local browser/backend values:
+
+- React origin: `http://localhost:5173`
+- Backend URL: `http://localhost:8080`
+- API base URL in React: blank, meaning same-origin `/api` through the Vite proxy
+
+The backend includes `spring-dotenv`, so root `.env` values are visible to Spring Boot as well as Docker Compose. Local CORS defaults to `http://localhost:5173` through `MINIS_LOCAL_ALLOWED_ORIGINS`.
+
+If you deliberately change the React host or port, set `MINIS_EVENT_APP_DEV_HOST`, `MINIS_EVENT_APP_DEV_PORT`, and backend `MINIS_LOCAL_ALLOWED_ORIGINS` to the exact origin. Do not use wildcard credentialed CORS.
+
+Prepared-account passwords and manual test credentials belong only in a private password manager or manual test notes outside Git.
+
+Optional event-admin bootstrap is disabled by default. For local or demo rehearsal only, set a
+comma-separated Firebase UID allowlist before the first bootstrap of the prepared admin account:
+
+```text
+MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED=true
+MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=<firebase-uid-1>,<firebase-uid-2>
+```
+
+Do not use email addresses for this allowlist, and do not enable it outside `local` or `demo`.
 
 ## Verification
 
@@ -95,7 +115,7 @@ npm run build
 
 ## Flyway and Old Volumes
 
-Flyway creates the identity schema on a clean PostgreSQL database. Hibernate only validates the migrated schema.
+Flyway creates the identity, creator-profile, and event-admin audit schema on a clean PostgreSQL database. Hibernate only validates the migrated schema.
 
 Unknown older Hibernate-created schemas are not adopted automatically. For disposable local data, reset both PostgreSQL and MinIO volumes explicitly:
 

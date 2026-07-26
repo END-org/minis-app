@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ApiClientProvider } from "../core/api/ApiClientContext";
 import { AuthSessionProvider } from "../core/auth/AuthSessionContext";
+import { BackendSessionProvider } from "../features/account/BackendSessionContext";
 
 interface AppProvidersProps {
   readonly children: ReactNode;
@@ -27,7 +28,9 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthSessionProvider>
-        <ApiClientProvider>{children}</ApiClientProvider>
+        <ApiClientProvider>
+          <BackendSessionProvider>{children}</BackendSessionProvider>
+        </ApiClientProvider>
       </AuthSessionProvider>
     </QueryClientProvider>
   );

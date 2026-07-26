@@ -105,6 +105,20 @@ npm run test
 npm run build
 ```
 
+## PowerShell Command Safety
+
+- Always use a single `$` for PowerShell variable assignment and references.
+- Never emit `$$variable`; PowerShell variables must always be `$variable`.
+- Before executing any generated PowerShell command, validate that no accidental duplicated `$` exists.
+- This is a known recurring Codex mistake and must always be corrected before execution.
+
+## Long-Running Process Safety
+
+- Do not start long-lived processes such as Spring Boot, Vite, Maven dev servers, or equivalent tools as blocking shell commands.
+- Use bounded startup with a hard timeout.
+- If the timeout is exceeded, terminate only the process started by that command and report the logs.
+- Do not retry the same startup strategy after it has already hung once.
+
 ## Phase Completion
 
 - Do not create Git commits unless explicitly requested.

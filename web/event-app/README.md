@@ -1,6 +1,6 @@
 # MINIS Event App
 
-React event browser client for prepared MINIS accounts.
+React event browser client for MINIS event accounts.
 
 ## Stack
 
@@ -35,10 +35,13 @@ VITE_FIREBASE_STORAGE_BUCKET
 Local API routing:
 
 ```text
-VITE_API_BASE_URL=http://localhost:8080
+MINIS_EVENT_APP_DEV_HOST=localhost
+MINIS_EVENT_APP_DEV_PORT=5173
+MINIS_EVENT_APP_DEV_PROXY_TARGET=http://localhost:8080
+VITE_API_BASE_URL=
 ```
 
-Leave `VITE_API_BASE_URL` empty in demo builds. The demo NGINX proxy serves React and `/api/` under one public origin.
+Leave `VITE_API_BASE_URL` empty for local development and demo builds. Local development sends `/api` through the Vite proxy; demo NGINX serves React and `/api/` under one public origin. Set `VITE_API_BASE_URL` only when intentionally calling an explicitly allowed backend origin.
 
 Firebase Admin credentials are backend-only. Do not copy Admin JSON, service-account content, prepared-account passwords, or private credentials into this app.
 
@@ -51,7 +54,7 @@ npm ci
 npm run dev
 ```
 
-The Vite app defaults to `http://localhost:5173`. The backend local profile allows that origin by default.
+The Vite app defaults to `http://localhost:5173` with `strictPort`. If that port is busy, Vite fails instead of moving to another origin. The backend local profile allows `http://localhost:5173` by default through `MINIS_LOCAL_ALLOWED_ORIGINS`; if you intentionally change the origin, update that local backend value to the exact origin.
 
 ## Verification
 
@@ -66,14 +69,31 @@ The build requires the public `VITE_FIREBASE_*` values. Automated tests mock Fir
 
 ## Authentication Flow
 
-1. A prepared user signs in with Firebase email/password.
-2. Firebase Web SDK provides an ID token in memory.
-3. The typed API client attaches `Authorization: Bearer <token>` to protected backend requests.
-4. React calls `POST /api/v1/auth/bootstrap`.
-5. React loads `GET /api/v1/me`.
-6. Role and account status are displayed only from backend responses.
+1. Email/password registration uses Firebase account creation, Firebase display-name update, and Firebase verification email.
+2. Unverified password users stay on `/verify-email`; React does not call backend bootstrap until Firebase reports `emailVerified`.
+3. Verified password users and Google users obtain a Firebase ID token in memory.
+4. The typed API client attaches `Authorization: Bearer <token>` to protected backend requests.
+5. React calls `POST /api/v1/auth/bootstrap`.
+6. The bootstrap response seeds the UID-scoped account cache for the current Firebase user.
+7. `GET /api/v1/me` remains the stable backend account projection API for explicit refreshes and future clients.
+8. Role and account status are displayed only from backend responses.
+
+Password reset uses Firebase `sendPasswordResetEmail`; Spring Boot never receives passwords. Google sign-in uses Firebase `GoogleAuthProvider` and `signInWithPopup`. Google provider availability, authorized domains, and email/reset templates must be verified in Firebase Console for the event project.
 
 On the first retry-safe 401, the API client force-refreshes the Firebase ID token and retries once. Repeated 401 clears authenticated server-state caches, signs out, and returns to sign-in. A 403 never refreshes the token and never signs out automatically.
+
+## Event Screens
+
+- `/` supports guest entry.
+- `/creators` and `/creators/:slug` load public active creators without authentication.
+- `/sign-in`, `/sign-up`, `/verify-email`, and `/forgot-password` own Firebase browser authentication flows.
+- `/account` uses the provisioned backend account projection and allows the signed-in user to edit
+  only display name, avatar URL, and bio.
+- `/admin` and `/admin/users/:userId` are presentation-gated by the backend-owned `ADMIN` role and
+  call the backend event-admin APIs for creator grant/revoke, suspension/reactivation, and
+  verification.
+
+Role, account status, and creator verification are displayed only from backend responses.
 
 ## Demo Routing
 
@@ -82,6 +102,7 @@ The demo proxy builds this app into NGINX. `/api/`, `/healthz`, `/auth-test/`, `
 ## Troubleshooting
 
 - Missing Firebase config: set all required public `VITE_FIREBASE_*` values.
-- Local API CORS failure: run the backend with the `local` profile or set `MINIS_ALLOWED_ORIGINS=http://localhost:5173`.
+- Local NETWORK error on `/account` or `/creators`: keep `VITE_API_BASE_URL` blank, run Vite on `http://localhost:5173`, and confirm the backend is reachable at `http://localhost:8080`.
+- Local API CORS failure after changing ports: run the backend with the `local` profile and set `MINIS_LOCAL_ALLOWED_ORIGINS` to the exact React origin.
 - 401 after sign-in: refresh or sign in again; the client retries a safe 401 only once.
-- 403 after sign-in: the Firebase identity is valid, but the backend-owned local MINIS account is disabled, suspended, unprovisioned, or not authorized.
+- 403 after sign-in: the Firebase identity is valid, but the backend-owned local MINIS account is disabled, suspended, unverified for password bootstrap, unprovisioned, or not authorized.

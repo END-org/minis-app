@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -36,6 +37,22 @@ button,
   padding: 0 16px;
   font-weight: 700;
   text-decoration: none;
+}
+
+.secondary-button,
+.button-link--secondary {
+  background: #ffffff;
+  color: #10212f;
+}
+
+.link-button {
+  min-height: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #145f82;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 button:disabled {
@@ -137,6 +154,9 @@ h2 {
 .home-view,
 .auth-panel,
 .account-view,
+.directory-view,
+.creator-profile,
+.admin-view,
 .notice {
   background: #ffffff;
   border: 1px solid #d5dde4;
@@ -192,7 +212,8 @@ label {
   font-weight: 750;
 }
 
-input {
+input,
+textarea {
   min-height: 46px;
   width: 100%;
   border: 1px solid #9eabb6;
@@ -202,14 +223,22 @@ input {
   padding: 0 12px;
 }
 
+textarea {
+  min-height: 118px;
+  padding: 12px;
+  resize: vertical;
+}
+
 input:focus-visible,
+textarea:focus-visible,
 button:focus-visible,
 a:focus-visible {
   outline: 3px solid #e2b84c;
   outline-offset: 2px;
 }
 
-input[aria-invalid="true"] {
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
   border-color: #a53333;
 }
 
@@ -223,6 +252,11 @@ input[aria-invalid="true"] {
 
 .form-error {
   margin-top: 0;
+}
+
+.success-message {
+  color: #1d6b40;
+  font-weight: 800;
 }
 
 .notice {
@@ -244,6 +278,91 @@ input[aria-invalid="true"] {
 
 .muted-link {
   margin: 18px 0 0;
+}
+
+.auth-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #60717f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #d5dde4;
+}
+
+.profile-form,
+.admin-action-grid,
+.search-field,
+.empty-state {
+  margin-top: 24px;
+}
+
+.creator-list,
+.admin-user-list {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.creator-list li,
+.admin-user-list li {
+  border-top: 1px solid #dfe5ea;
+  padding-top: 12px;
+}
+
+.creator-list a,
+.admin-user-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #10212f;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.creator-list strong,
+.status-pill {
+  border: 1px solid #88b69e;
+  border-radius: 999px;
+  color: #1d6b40;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
+.avatar-preview {
+  width: 88px;
+  height: 88px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-bottom: 16px;
+}
+
+.admin-action-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-action-grid button {
+  width: 100%;
 }
 
 .fact-list {
@@ -310,6 +429,9 @@ dd {
   .home-view,
   .auth-panel,
   .account-view,
+  .directory-view,
+  .creator-profile,
+  .admin-view,
   .notice {
     padding: 20px;
   }

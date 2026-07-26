@@ -15,7 +15,17 @@ export interface AccountResponse {
   readonly createdAt: string;
 }
 
-export const accountQueryKey = ["account", "current"] as const;
+export interface UpdateAccountProfileRequest {
+  readonly displayName: string;
+  readonly avatarUrl: string;
+  readonly bio: string;
+}
+
+export const accountQueryRootKey = ["account"] as const;
+
+export function accountQueryKey(firebaseUid: string) {
+  return [...accountQueryRootKey, "current", firebaseUid] as const;
+}
 
 export function bootstrapCurrentAccount(client: ApiClient): Promise<AccountResponse> {
   return client.request<AccountResponse>("/api/v1/auth/bootstrap", {
@@ -29,5 +39,17 @@ export function getCurrentAccount(client: ApiClient): Promise<AccountResponse> {
   return client.request<AccountResponse>("/api/v1/me", {
     auth: "required",
     method: "GET",
+  });
+}
+
+export function updateCurrentProfile(
+  client: ApiClient,
+  request: UpdateAccountProfileRequest,
+): Promise<AccountResponse> {
+  return client.request<AccountResponse>("/api/v1/me/profile", {
+    auth: "required",
+    body: request,
+    method: "PATCH",
+    retryOnUnauthorized: false,
   });
 }

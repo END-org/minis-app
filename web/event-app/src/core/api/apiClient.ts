@@ -159,6 +159,16 @@ async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
   }
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiClientError({
+      code: "NON_JSON_API_RESPONSE",
+      kind: "network",
+      message:
+        "The MINIS API returned a non-JSON response. Check the API base URL and local proxy.",
+      status: response.status,
+    });
+  }
   return (await response.json()) as T;
 }
 
@@ -168,7 +178,7 @@ async function errorFromResponse(response: Response): Promise<ApiClientError> {
   return new ApiClientError({
     kind: "api",
     status: response.status,
-      code: body?.code ?? `HTTP_${String(response.status)}`,
+    code: body?.code ?? `HTTP_${String(response.status)}`,
     message: body?.message ?? fallbackMessage(response.status),
     path: body?.path,
     correlationId,

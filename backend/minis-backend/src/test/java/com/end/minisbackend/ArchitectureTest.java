@@ -17,7 +17,7 @@ class ArchitectureTest {
           .resideInAPackage("..shared..")
           .should()
           .dependOnClassesThat()
-          .resideInAnyPackage("..identity..", "..user..");
+          .resideInAnyPackage("..admin..", "..creator..", "..identity..", "..user..");
 
   @ArchTest
   static final ArchRule controllersDoNotAccessInfrastructure =
@@ -35,7 +35,34 @@ class ArchitectureTest {
           .resideInAPackage("..api..")
           .should()
           .dependOnClassesThat()
-          .resideInAnyPackage("..user.domain..");
+          .resideInAnyPackage("..admin.domain..", "..creator.domain..", "..user.domain..");
+
+  @ArchTest
+  static final ArchRule domainDoesNotDependOnApi =
+      noClasses()
+          .that()
+          .resideInAPackage("..domain..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..api..");
+
+  @ArchTest
+  static final ArchRule domainDoesNotDependOnSpringWeb =
+      noClasses()
+          .that()
+          .resideInAPackage("..domain..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage("org.springframework.web..");
+
+  @ArchTest
+  static final ArchRule applicationDoesNotDependOnApi =
+      noClasses()
+          .that()
+          .resideInAPackage("..application..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..api..");
 
   @ArchTest
   static final ArchRule identityDoesNotDependOnUserInfrastructure =
@@ -54,6 +81,24 @@ class ArchitectureTest {
           .should()
           .dependOnClassesThat()
           .resideInAPackage("..user.infrastructure..");
+
+  @ArchTest
+  static final ArchRule creatorInfrastructureIsInternal =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("..creator.infrastructure..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..creator.infrastructure..");
+
+  @ArchTest
+  static final ArchRule adminInfrastructureIsInternal =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("..admin.infrastructure..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..admin.infrastructure..");
 
   @ArchTest
   static final ArchRule featurePackagesAreFreeOfCycles =
