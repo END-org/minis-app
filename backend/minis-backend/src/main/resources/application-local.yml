@@ -22,3 +22,7 @@ springdoc:
 logging:
   level:
     com.end.minisbackend: DEBUG
+
+minis:
+  http:
+    allowed-origins: ${MINIS_ALLOWED_ORIGINS:http://localhost:5173}

@@ -2,7 +2,6 @@ package com.end.minisbackend.identity.api;
 
 import com.end.minisbackend.identity.application.BootstrapCurrentIdentityService;
 import com.end.minisbackend.identity.application.MinisPrincipal;
-import com.end.minisbackend.identity.application.ProvisionedUserAccount;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -30,9 +29,10 @@ class AuthBootstrapController {
   @ApiResponse(responseCode = "401", description = "The Firebase ID token is missing or invalid.")
   @ApiResponse(responseCode = "403", description = "Email is unverified or account is not active.")
   @PostMapping("/bootstrap")
-  ResponseEntity<ProvisionedUserAccount> bootstrap(
+  ResponseEntity<AuthBootstrapResponse> bootstrap(
       @AuthenticationPrincipal MinisPrincipal principal) {
     return ResponseEntity.ok(
-        bootstrapCurrentIdentityService.bootstrap(principal.firebaseIdentity()));
+        AuthBootstrapResponseMapper.toResponse(
+            bootstrapCurrentIdentityService.bootstrap(principal.firebaseIdentity())));
   }
 }

@@ -1,7 +1,6 @@
 package com.end.minisbackend.user.api;
 
 import com.end.minisbackend.identity.application.MinisPrincipal;
-import com.end.minisbackend.identity.application.ProvisionedUserAccount;
 import com.end.minisbackend.user.application.CurrentUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -30,7 +29,8 @@ class CurrentUserController {
   @ApiResponse(responseCode = "401", description = "The Firebase ID token is missing or invalid.")
   @ApiResponse(responseCode = "403", description = "The MINIS account is missing or inactive.")
   @GetMapping("/me")
-  ResponseEntity<ProvisionedUserAccount> me(@AuthenticationPrincipal MinisPrincipal principal) {
-    return ResponseEntity.ok(currentUserService.currentUser(principal));
+  ResponseEntity<CurrentUserResponse> me(@AuthenticationPrincipal MinisPrincipal principal) {
+    return ResponseEntity.ok(
+        CurrentUserResponseMapper.toResponse(currentUserService.currentUser(principal)));
   }
 }

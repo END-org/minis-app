@@ -15,7 +15,8 @@ body {
 }
 
 button,
-input {
+input,
+.button-link {
   font: inherit;
 }
 
@@ -69,6 +70,7 @@ h2 {
 }
 
 .links a,
+.button-link,
 button {
   min-height: 40px;
   border: 1px solid #aeb9c7;
@@ -90,11 +92,18 @@ button {
   padding: 0 12px;
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
 button {
   padding: 0 14px;
 }
 
 button:hover,
+.button-link:hover,
 .links a:hover {
   border-color: #2e6f95;
   box-shadow: 0 3px 12px rgb(23 32 42 / 12%);
