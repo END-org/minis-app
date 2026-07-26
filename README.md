@@ -6,12 +6,12 @@ MINIS is a mobile-first platform for vertical short films and useful mini-conten
 
 - Backend: Spring Boot modular monolith in `backend/minis-backend`.
 - Java target: 21. The current local toolchain may run newer JDKs while Maven compiles with release 21.
-- Current implemented slice: Firebase ID-token verification boundary, local MINIS user bootstrap, `/api/v1/auth/bootstrap`, `/api/v1/me`, shared API errors, correlation IDs, OpenAPI configuration, and security tests.
-- Placeholder clients: `mobile/flutter` and `web/admin`.
+- Current implemented slice: Firebase ID-token verification boundary, local MINIS user bootstrap, `/api/v1/auth/bootstrap`, `/api/v1/me`, React event shell with prepared-account sign-in, shared API errors, correlation IDs, OpenAPI configuration, and security tests.
+- Current clients: React event app in `web/event-app`; placeholders under `mobile/flutter` and `web/admin` are not present in this checkout.
 - Local Docker services: PostgreSQL and MinIO in `compose.local.yml`.
 - Demo deployment skeleton: PostgreSQL, MinIO, Spring Boot backend, and NGINX reverse proxy in `compose.demo.yml`.
 - Database schema: Flyway migration `V1__create_identity_user_accounts.sql`; Hibernate validates the migrated schema.
-- Deferred in this baseline: React event client, media upload, feed/content, social interactions, notifications, reports, analytics, chat, and admin product features.
+- Deferred in this baseline: public sign-up, password reset, provider expansion, media upload, feed/content, social interactions, notifications, reports, analytics, chat, and admin product features.
 
 ## Quick Local Backend Start
 
@@ -34,6 +34,14 @@ Set-Location backend/minis-backend
 ```
 
 Local startup requires a Firebase development project and `GOOGLE_APPLICATION_CREDENTIALS` pointing to a Firebase Admin JSON outside the repository.
+
+Start the React event app after the backend is running:
+
+```bash
+cd web/event-app
+npm ci
+npm run dev
+```
 
 Fresh Phase 1 local databases use `minis_event_local`. If an older disposable local volume was created before Flyway, recreate it explicitly:
 
@@ -61,6 +69,16 @@ From `backend/minis-backend`:
 ./mvnw --batch-mode --no-transfer-progress verify
 ```
 
+From `web/event-app`:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -68,4 +86,4 @@ Windows PowerShell:
 .\mvnw.cmd --batch-mode --no-transfer-progress verify
 ```
 
-See `AGENTS.md` for repository-local engineering rules, `docs/getting-started.md` for local setup, `docs/deployment.md` for the demo topology, and `backend/minis-backend/README.md` for backend setup, Firebase auth testing, local URLs, and troubleshooting.
+See `AGENTS.md` for repository-local engineering rules, `docs/getting-started.md` for local setup, `docs/deployment.md` for the demo topology, `backend/minis-backend/README.md` for backend setup, and `web/event-app/README.md` for the React event client.

@@ -3,6 +3,7 @@
 ## Prerequisites
 
 - JDK 21 or newer with the backend compiled for Java 21.
+- Node.js 24 LTS. The repository declares this in `.nvmrc`.
 - Docker Desktop or another Docker engine compatible with Testcontainers.
 - Firebase development project with Email/Password and Google providers enabled.
 - Firebase Admin service-account JSON stored outside the repository.
@@ -49,6 +50,30 @@ Useful local URLs:
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 
+## React Event App
+
+Copy the frontend environment template and fill public Firebase Web SDK values:
+
+```bash
+cd web/event-app
+cp .env.example .env.local
+npm ci
+npm run dev
+```
+
+Windows PowerShell:
+
+```powershell
+Set-Location web/event-app
+Copy-Item .env.example .env.local
+npm ci
+npm run dev
+```
+
+The local app runs at `http://localhost:5173`. Keep `VITE_API_BASE_URL=http://localhost:8080` for local development. The backend `local` profile allows that origin by default.
+
+Prepared-account passwords belong only in a private password manager or manual test notes outside Git.
+
 ## Verification
 
 From `backend/minis-backend`:
@@ -56,6 +81,16 @@ From `backend/minis-backend`:
 ```bash
 ./mvnw spotless:apply
 ./mvnw --batch-mode --no-transfer-progress verify
+```
+
+From `web/event-app`:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ## Flyway and Old Volumes

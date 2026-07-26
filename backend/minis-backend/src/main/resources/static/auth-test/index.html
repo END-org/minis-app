@@ -3,94 +3,52 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MINIS Firebase Auth Test</title>
+    <title>MINIS Diagnostics</title>
     <link rel="stylesheet" href="/auth-test/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="header">
         <div>
-          <p class="eyebrow">MINIS local auth lab</p>
-          <h1>Firebase sign-in, MINIS bootstrap</h1>
+          <p class="eyebrow">MINIS diagnostics</p>
+          <h1>Event browser entry points</h1>
         </div>
-        <nav class="links" aria-label="Local API links">
+        <nav class="links" aria-label="Diagnostic links">
+          <a href="/">Event app</a>
+          <a href="/healthz">Proxy health</a>
+          <a href="/actuator/health">Backend health</a>
           <a href="/swagger-ui/index.html">Swagger UI</a>
           <a href="/v3/api-docs">OpenAPI JSON</a>
-          <a href="/actuator/health">Health</a>
         </nav>
       </section>
 
       <section class="notice">
-        <p>Firebase handles passwords and provider login. Spring Boot receives only the Firebase ID token, verifies it, and creates or loads the internal MINIS account.</p>
+        <p>
+          This page is a development and demo diagnostic surface only. The React event app owns
+          browser sign-in; Spring Boot continues to verify Firebase ID tokens and load backend-owned
+          roles and account status.
+        </p>
       </section>
 
       <section class="grid">
-        <form class="panel" id="email-form">
-          <h2>Email/password</h2>
-          <label>
-            Email
-            <input id="email" type="email" autocomplete="email" required />
-          </label>
-          <label>
-            Password
-            <input id="password" type="password" autocomplete="current-password" required />
-          </label>
-          <div class="row">
-            <button type="button" id="register-button">Register</button>
-            <button type="button" id="login-button">Log in</button>
-          </div>
-          <div class="row">
-            <button type="button" id="verify-email-button">Send verification email</button>
-            <button type="button" id="reload-user-button">Reload user</button>
-          </div>
-        </form>
-
         <section class="panel">
-          <h2>Provider login</h2>
-          <div class="row">
-            <button type="button" id="google-button">Google popup</button>
-            <button type="button" id="logout-button">Logout</button>
-          </div>
-          <dl class="facts">
-            <div>
-              <dt>UID</dt>
-              <dd id="uid">Not signed in</dd>
-            </div>
-            <div>
-              <dt>Email</dt>
-              <dd id="user-email">Not signed in</dd>
-            </div>
-            <div>
-              <dt>Email verified</dt>
-              <dd id="email-verified">Not signed in</dd>
-            </div>
-            <div>
-              <dt>Providers</dt>
-              <dd id="providers">Not signed in</dd>
-            </div>
-          </dl>
+          <h2>Event browser</h2>
+          <p>Use the React app for prepared-account sign-in and account projection checks.</p>
+          <a class="button-link" href="/">Open event app</a>
         </section>
 
         <section class="panel">
-          <h2>Token and API</h2>
-          <p id="token-status">No token requested.</p>
-          <div class="row">
-            <button type="button" id="refresh-token-button">Fresh ID token</button>
-            <button type="button" id="copy-token-button">Copy token</button>
-          </div>
-          <div class="row">
-            <button type="button" id="bootstrap-button">POST bootstrap</button>
-            <button type="button" id="me-button">GET me</button>
-          </div>
+          <h2>Backend health</h2>
+          <p>Health endpoints are public and do not require Firebase credentials.</p>
+          <a class="button-link" href="/actuator/health/readiness">Readiness</a>
         </section>
 
-        <section class="panel output-panel">
-          <h2>API response</h2>
-          <pre id="output">{}</pre>
+        <section class="panel">
+          <h2>API handoff</h2>
+          <p>Swagger and OpenAPI are available when the active backend profile enables them.</p>
+          <a class="button-link" href="/swagger-ui/index.html">Swagger UI</a>
         </section>
       </section>
     </main>
-
-    <script type="module" src="/auth-test/app.js"></script>
   </body>
 </html>

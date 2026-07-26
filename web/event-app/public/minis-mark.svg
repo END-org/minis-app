@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">MINIS</title>
+  <rect width="64" height="64" rx="14" fill="#10212f"/>
+  <path d="M14 18h36v28H14z" fill="#f8fbff"/>
+  <path d="M18 22h7v6h-7zm10 0h8v6h-8zm11 0h7v6h-7zM18 36h7v6h-7zm10 0h8v6h-8zm11 0h7v6h-7z" fill="#21806f"/>
+  <path d="M17 31h30" stroke="#e2b84c" stroke-width="3" stroke-linecap="round"/>
+</svg>

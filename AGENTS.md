@@ -4,7 +4,7 @@
 
 - Backend: Java 21 target, Spring Boot, PostgreSQL, Firebase Authentication, OpenAPI, ArchUnit, Testcontainers, Spotless, Checkstyle, PMD, SpotBugs, Maven Enforcer, and Maven dependency analysis.
 - Current Java package root: `com.end.minisbackend`.
-- Current clients: placeholders under `mobile/flutter` and `web/admin`; the React event client is not present yet.
+- Current clients: React event app under `web/event-app`.
 - Local infrastructure: PostgreSQL and MinIO are defined in `compose.local.yml`.
 - Demo infrastructure: PostgreSQL, MinIO, Spring Boot, and NGINX are defined in `compose.demo.yml`.
 
@@ -93,6 +93,16 @@
 ```powershell
 .\mvnw.cmd spotless:apply
 .\mvnw.cmd --batch-mode --no-transfer-progress verify
+```
+
+- Frontend verification from `web/event-app`:
+
+```bash
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ## Phase Completion

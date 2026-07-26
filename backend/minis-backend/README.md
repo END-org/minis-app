@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local auth-lab/dev routes outside the `local` profile, and creates the identity schema through Flyway.
+The current backend slice verifies Firebase ID tokens, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the identity schema through Flyway.
 
-Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, admin APIs, and React are not implemented in this baseline.
+Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, admin APIs, public sign-up, password reset, and provider expansion are not implemented in this baseline.
 
 ## Prerequisites
 
@@ -86,7 +86,7 @@ The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO
 ## Local URLs
 
 - API base: `http://localhost:8080`
-- Auth test page: `http://localhost:8080/auth-test/index.html`
+- Diagnostics page: `http://localhost:8080/auth-test/index.html`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - Actuator health: `http://localhost:8080/actuator/health`
@@ -96,22 +96,23 @@ The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO
 
 ## Manual Firebase Browser Test
 
-1. Open `http://localhost:8080/auth-test/index.html`.
-2. Register with email/password.
-3. Send the verification email.
-4. Verify the email in Firebase.
-5. Reload the Firebase user on the test page.
-6. Request a fresh ID token.
-7. Call `POST /api/v1/auth/bootstrap`.
-8. Call `GET /api/v1/me`.
-9. Test Google popup sign-in and repeat bootstrap plus `/me`.
+1. Start the backend with the `local` profile.
+2. Start `web/event-app` with public Firebase Web SDK values.
+3. Open the React app at `http://localhost:5173`.
+4. Sign in with a prepared Firebase email/password account.
+5. Confirm React calls `POST /api/v1/auth/bootstrap`.
+6. Confirm React calls `GET /api/v1/me`.
+7. Confirm displayed MINIS role and account status come from the backend response.
+8. Confirm sign-out clears authenticated application state.
+
+The static page at `/auth-test/index.html` is only a diagnostics launcher. It does not contain Firebase sign-in logic, token display, or credential handling.
 
 ## Common Local Errors
 
 - Invalid `GOOGLE_APPLICATION_CREDENTIALS`: set an absolute path to a real development Firebase Admin JSON outside the repository.
 - Wrong Firebase project: make sure `FIREBASE_PROJECT_ID` matches the Admin credential and Web App.
 - Email/Password provider disabled: enable it in Firebase Authentication.
-- Google provider disabled: enable it and set authorized domains for localhost.
+- Google provider disabled: Google sign-in is intentionally not shown in the event app unless it is enabled and manually verified for the exact event domain.
 - Email not verified: send the verification email, verify, reload the Firebase user, then request a fresh token.
 - PostgreSQL unavailable: run `docker compose -f compose.local.yml up -d` from the repository root.
 - Environment variables not loaded: export them in the shell or configure them in the IDE run configuration.
