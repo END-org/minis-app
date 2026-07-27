@@ -1,7 +1,9 @@
 package com.end.minisbackend.identity.api;
 
+import com.end.minisbackend.identity.application.BootstrapAuthenticationContextRefresher;
 import com.end.minisbackend.identity.application.BootstrapCurrentIdentityService;
 import com.end.minisbackend.identity.application.MinisPrincipal;
+import com.end.minisbackend.identity.application.ProvisionedUserAccount;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -15,9 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 class AuthBootstrapController {
   private final BootstrapCurrentIdentityService bootstrapCurrentIdentityService;
+  private final BootstrapAuthenticationContextRefresher authenticationContextRefresher;
 
-  AuthBootstrapController(BootstrapCurrentIdentityService bootstrapCurrentIdentityService) {
+  AuthBootstrapController(
+      BootstrapCurrentIdentityService bootstrapCurrentIdentityService,
+      BootstrapAuthenticationContextRefresher authenticationContextRefresher) {
     this.bootstrapCurrentIdentityService = bootstrapCurrentIdentityService;
+    this.authenticationContextRefresher = authenticationContextRefresher;
   }
 
   @Operation(
@@ -31,8 +37,9 @@ class AuthBootstrapController {
   @PostMapping("/bootstrap")
   ResponseEntity<AuthBootstrapResponse> bootstrap(
       @AuthenticationPrincipal MinisPrincipal principal) {
-    return ResponseEntity.ok(
-        AuthBootstrapResponseMapper.toResponse(
-            bootstrapCurrentIdentityService.bootstrap(principal.firebaseIdentity())));
+    ProvisionedUserAccount account =
+        bootstrapCurrentIdentityService.bootstrap(principal.firebaseIdentity());
+    authenticationContextRefresher.refresh(principal.firebaseIdentity(), account);
+    return ResponseEntity.ok(AuthBootstrapResponseMapper.toResponse(account));
   }
 }

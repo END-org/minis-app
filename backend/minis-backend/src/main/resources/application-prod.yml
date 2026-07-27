@@ -19,3 +19,16 @@ logging:
     root: INFO
     com.end.minisbackend: INFO
     org.springframework.security: WARN
+  structured:
+    format:
+      console: ecs
+    json:
+      context:
+        include: true
+      stacktrace:
+        max-length: 8192
+        max-throwable-depth: 4
+
+minis:
+  http:
+    allowed-origins: ${MINIS_PROD_ALLOWED_ORIGINS:}

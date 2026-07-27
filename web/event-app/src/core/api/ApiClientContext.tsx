@@ -10,14 +10,14 @@ interface ApiClientProviderProps {
 }
 
 export function ApiClientProvider({ children }: ApiClientProviderProps) {
-  const { user, expireAuthenticatedSession } = useAuthSession();
+  const { currentUser, expireAuthenticatedSession } = useAuthSession();
   const client = useMemo(
     () =>
       createApiClient(eventAppConfig.apiBaseUrl, {
-        currentUser: () => user,
+        currentUser,
         expireAuthenticatedSession,
       }),
-    [expireAuthenticatedSession, user],
+    [currentUser, expireAuthenticatedSession],
   );
 
   return <ApiClientContext.Provider value={client}>{children}</ApiClientContext.Provider>;

@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../core/auth/AuthSessionContext";
+import { useBackendSession } from "../../features/account/BackendSessionContext";
 import type { ReactNode } from "react";
 
 interface EventShellProps {
@@ -9,6 +10,8 @@ interface EventShellProps {
 export function EventShell({ children }: EventShellProps) {
   const navigate = useNavigate();
   const { loading, signOut, user } = useAuthSession();
+  const { state } = useBackendSession();
+  const isReady = state.status === "ready";
 
   async function handleSignOut() {
     await signOut();
@@ -23,8 +26,20 @@ export function EventShell({ children }: EventShellProps) {
           <span>MINIS Event</span>
         </Link>
         <nav className="top-nav" aria-label="Primary navigation">
-          <NavLink to="/">Guest</NavLink>
-          {user ? <NavLink to="/account">Account</NavLink> : <NavLink to="/sign-in">Sign in</NavLink>}
+          <NavLink to="/">Home</NavLink>
+          <NavLink to="/creators">Creators</NavLink>
+          {isReady ? (
+            <NavLink to="/account">Account</NavLink>
+          ) : null}
+          {state.status === "signed-out" ? (
+            <>
+              <NavLink to="/sign-in">Sign in</NavLink>
+              <NavLink to="/sign-up">Sign up</NavLink>
+            </>
+          ) : null}
+          {isReady && state.account?.role === "ADMIN" ? (
+            <NavLink to="/admin">Admin</NavLink>
+          ) : null}
           {user ? (
             <button
               type="button"

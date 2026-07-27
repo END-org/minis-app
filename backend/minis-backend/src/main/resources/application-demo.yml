@@ -35,9 +35,22 @@ logging:
     root: INFO
     com.end.minisbackend: INFO
     org.springframework.security: WARN
+  structured:
+    format:
+      console: ecs
+    json:
+      context:
+        include: true
+      stacktrace:
+        max-length: 8192
+        max-throwable-depth: 4
 
 minis:
   firebase:
     project-id: ${FIREBASE_PROJECT_ID}
   http:
-    allowed-origins: ${MINIS_ALLOWED_ORIGINS:}
+    allowed-origins: ${MINIS_DEMO_ALLOWED_ORIGINS:http://localhost:8088}
+  event-admin:
+    bootstrap:
+      enabled: ${MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED:false}
+      firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}

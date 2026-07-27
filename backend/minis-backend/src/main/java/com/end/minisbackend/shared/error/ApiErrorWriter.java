@@ -13,6 +13,10 @@ import tools.jackson.databind.ObjectMapper;
 /** Writes the canonical MINIS error response without exposing internal details. */
 @Component
 public class ApiErrorWriter {
+  public static final String ERROR_CODE_ATTRIBUTE = ApiErrorWriter.class.getName() + ".errorCode";
+  public static final String ERROR_STATUS_ATTRIBUTE =
+      ApiErrorWriter.class.getName() + ".errorStatus";
+
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
@@ -22,6 +26,8 @@ public class ApiErrorWriter {
   }
 
   public ApiErrorResponse responseFor(HttpServletRequest request, ApiErrorCode code) {
+    request.setAttribute(ERROR_CODE_ATTRIBUTE, code.name());
+    request.setAttribute(ERROR_STATUS_ATTRIBUTE, code.status().value());
     return new ApiErrorResponse(
         Instant.now(clock),
         code.status().value(),

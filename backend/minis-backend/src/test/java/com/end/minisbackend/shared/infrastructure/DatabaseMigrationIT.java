@@ -34,8 +34,10 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "demo", "test")) {
         assertThat(
                 queryForInt(database, "select count(*) from flyway_schema_history where success"))
-            .isEqualTo(1);
+            .isEqualTo(2);
         assertThat(tableExists(database, "user_accounts")).isTrue();
+        assertThat(tableExists(database, "creator_profiles")).isTrue();
+        assertThat(tableExists(database, "event_admin_audit_entries")).isTrue();
       }
 
       List<String> schemaAfterFirstStartup = schemaFingerprint(database);
@@ -54,12 +56,23 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "test")) {}
 
       insertUser(database, "constraint-user", "VIEWER", "ACTIVE");
+      UUID creatorUserId = userId(database, "constraint-user");
+      insertUser(database, "bad-slug-user", "VIEWER", "ACTIVE");
+      UUID badSlugUserId = userId(database, "bad-slug-user");
 
       assertThatThrownBy(() -> insertUser(database, "constraint-user", "VIEWER", "ACTIVE"))
           .satisfies(throwable -> assertSqlState(throwable, "23505"));
       assertThatThrownBy(() -> insertUser(database, "invalid-role-user", "OWNER", "ACTIVE"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       assertThatThrownBy(() -> insertUser(database, "invalid-status-user", "VIEWER", "LOCKED"))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      insertCreatorProfile(database, creatorUserId, "event-creator");
+      assertThatThrownBy(() -> insertCreatorProfile(database, creatorUserId, "event-creator"))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(() -> insertCreatorProfile(database, badSlugUserId, "bad slug"))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      insertAudit(database, creatorUserId, creatorUserId, "CREATOR_GRANTED");
+      assertThatThrownBy(() -> insertAudit(database, creatorUserId, creatorUserId, "ROLE_CHANGED"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
     }
   }
@@ -193,6 +206,63 @@ class DatabaseMigrationIT {
       statement.setString(2, firebaseUid);
       statement.setString(3, role);
       statement.setString(4, status);
+      statement.executeUpdate();
+    }
+  }
+
+  private static UUID userId(PostgreSQLContainer<?> database, String firebaseUid)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement("select id from user_accounts where firebase_uid = ?")) {
+      statement.setString(1, firebaseUid);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getObject(1, UUID.class);
+      }
+    }
+  }
+
+  private static void insertCreatorProfile(
+      PostgreSQLContainer<?> database, UUID userId, String slug) throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into creator_profiles (
+                  user_id,
+                  public_slug,
+                  public_display_name,
+                  verified,
+                  created_at,
+                  updated_at
+                ) values (?, ?, 'Event Creator', false, current_timestamp, current_timestamp)
+                """)) {
+      statement.setObject(1, userId);
+      statement.setString(2, slug);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertAudit(
+      PostgreSQLContainer<?> database, UUID actorId, UUID targetId, String action)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into event_admin_audit_entries (
+                  id,
+                  actor_admin_id,
+                  target_user_id,
+                  action_type,
+                  created_at
+                ) values (?, ?, ?, ?, current_timestamp)
+                """)) {
+      statement.setObject(1, UUID.randomUUID());
+      statement.setObject(2, actorId);
+      statement.setObject(3, targetId);
+      statement.setString(4, action);
       statement.executeUpdate();
     }
   }

@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the identity schema through Flyway.
+The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
 
-Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, admin APIs, public sign-up, password reset, and provider expansion are not implemented in this baseline.
+Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, and complete user management are not implemented in this baseline.
 
 ## Prerequisites
 
@@ -27,7 +27,8 @@ Copy the root environment template:
 cp ../../.env.example ../../.env
 ```
 
-Spring Boot reads normal environment variables. Docker Compose reads the root `.env` file.
+The backend includes `spring-dotenv`, so Spring Boot reads normal environment variables and root
+`.env` values. Docker Compose also reads the root `.env` file. Keep secret values out of Git.
 
 The default local database name is `minis_event_local`, which is intentionally separate from older pre-Flyway development databases.
 
@@ -83,6 +84,28 @@ Run the local application only after PostgreSQL is available and `GOOGLE_APPLICA
 
 The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO_MINIO_ROOT_USER`, `DEMO_MINIO_ROOT_PASSWORD`, `FIREBASE_PROJECT_ID`, and `GOOGLE_APPLICATION_CREDENTIALS` values.
 
+Optional local/demo event-admin bootstrap:
+
+```text
+MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED=false
+MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=
+```
+
+When enabled only in `local` or `demo`, the comma-separated Firebase UID allowlist persists `ADMIN`
+as the initial PostgreSQL role during bootstrap. Email alone is not sufficient.
+
+Profile-specific CORS values:
+
+```text
+MINIS_LOCAL_ALLOWED_ORIGINS=http://localhost:5173
+MINIS_DEMO_ALLOWED_ORIGINS=http://localhost:8088
+MINIS_PROD_ALLOWED_ORIGINS=
+```
+
+The local and demo variables are intentionally separate. A demo origin must not override the local
+Vite origin. CORS credentials are disabled; allowed methods and headers are bounded to the API
+needs, including `Authorization`, `Content-Type`, and `X-Correlation-ID`.
+
 ## Local URLs
 
 - API base: `http://localhost:8080`
@@ -97,13 +120,24 @@ The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO
 ## Manual Firebase Browser Test
 
 1. Start the backend with the `local` profile.
-2. Start `web/event-app` with public Firebase Web SDK values.
+2. Start `web/event-app` with public Firebase Web SDK values and blank `VITE_API_BASE_URL`.
 3. Open the React app at `http://localhost:5173`.
-4. Sign in with a prepared Firebase email/password account.
-5. Confirm React calls `POST /api/v1/auth/bootstrap`.
-6. Confirm React calls `GET /api/v1/me`.
-7. Confirm displayed MINIS role and account status come from the backend response.
-8. Confirm sign-out clears authenticated application state.
+4. Register a new email/password user and confirm Firebase sends a verification email.
+5. Confirm the unverified password user cannot bootstrap.
+6. After verification, confirm React calls `POST /api/v1/auth/bootstrap`.
+7. Confirm the bootstrap response creates the local PostgreSQL account and displays backend-owned
+   role/status in React.
+8. Confirm `GET /api/v1/me` remains available for the authenticated account projection.
+9. Confirm the new account is backend `VIEWER` and `ACTIVE`.
+10. Confirm email/password sign-in, Google sign-in, password reset, and sign-out.
+
+Creator/admin rehearsal can then verify:
+
+1. Open `/admin` as an event admin.
+2. Grant a prepared viewer the creator role with a public slug and display name.
+3. Open `/creators` as a guest and confirm the active creator is public.
+4. Suspend the creator and confirm the public slug is no longer visible.
+5. Reactivate or revoke as needed for event preparation.
 
 The static page at `/auth-test/index.html` is only a diagnostics launcher. It does not contain Firebase sign-in logic, token display, or credential handling.
 
@@ -112,10 +146,11 @@ The static page at `/auth-test/index.html` is only a diagnostics launcher. It do
 - Invalid `GOOGLE_APPLICATION_CREDENTIALS`: set an absolute path to a real development Firebase Admin JSON outside the repository.
 - Wrong Firebase project: make sure `FIREBASE_PROJECT_ID` matches the Admin credential and Web App.
 - Email/Password provider disabled: enable it in Firebase Authentication.
-- Google provider disabled: Google sign-in is intentionally not shown in the event app unless it is enabled and manually verified for the exact event domain.
+- Google provider disabled or unauthorized domain: enable Google in Firebase Authentication and authorize `localhost` plus the event/demo domain.
 - Email not verified: send the verification email, verify, reload the Firebase user, then request a fresh token.
+- Local React NETWORK error: keep `VITE_API_BASE_URL` blank, run Vite on `http://localhost:5173`, confirm the backend is reachable at `http://localhost:8080`, and confirm `MINIS_LOCAL_ALLOWED_ORIGINS` is exactly the React origin.
 - PostgreSQL unavailable: run `docker compose -f compose.local.yml up -d` from the repository root.
-- Environment variables not loaded: export them in the shell or configure them in the IDE run configuration.
+- Environment variables not loaded: export them in the shell, configure them in the IDE run configuration, or keep them in the root `.env` file loaded by `spring-dotenv`.
 
 ## Quality Gates
 
@@ -125,7 +160,10 @@ Error Prone is not configured in this first slice because the local build is run
 
 ## Database Initialization
 
-Flyway is the source of truth for the physical schema. The initial identity migration is `src/main/resources/db/migration/V1__create_identity_user_accounts.sql`.
+Flyway is the source of truth for the physical schema. Current migrations:
+
+- `src/main/resources/db/migration/V1__create_identity_user_accounts.sql`
+- `src/main/resources/db/migration/V2__create_creator_profiles_and_event_admin_audit.sql`
 
 - `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
 - `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.

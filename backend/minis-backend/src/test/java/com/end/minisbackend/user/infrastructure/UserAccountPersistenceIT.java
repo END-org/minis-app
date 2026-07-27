@@ -60,6 +60,28 @@ class UserAccountPersistenceIT {
   }
 
   @Test
+  void verifiedFederatedBootstrapPersistsViewerAccount() {
+    ProvisionedUserAccount account =
+        userAccountProvisioningGateway.bootstrap(TestIdentities.googleIdentity("google-db-user"));
+
+    assertThat(account.role()).isEqualTo("VIEWER");
+    assertThat(account.status()).isEqualTo("ACTIVE");
+    assertThat(account.emailVerified()).isTrue();
+    assertThat(userAccountStore.countByFirebaseUid("google-db-user")).isEqualTo(1);
+  }
+
+  @Test
+  void unverifiedPasswordBootstrapDoesNotPersistUserRow() {
+    assertThatThrownBy(
+            () ->
+                userAccountProvisioningGateway.bootstrap(
+                    TestIdentities.emailPasswordIdentity("unverified-db-user", false)))
+        .hasMessageContaining("Email address must be verified before bootstrap");
+
+    assertThat(userAccountStore.countByFirebaseUid("unverified-db-user")).isZero();
+  }
+
+  @Test
   void concurrentBootstrapCreatesOneUserRow() throws Exception {
     int workerCount = 6;
     ExecutorService executorService = Executors.newFixedThreadPool(workerCount);

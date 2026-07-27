@@ -1,11 +1,12 @@
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiClientError } from "../../core/api/apiClient";
-import { useAuthSession } from "../../core/auth/AuthSessionContext";
-import { toApiFailureView } from "../../core/errors/apiError";
+import { isEmailPasswordUser, useAuthSession } from "../../core/auth/AuthSessionContext";
+import { toFirebaseAuthMessage } from "../../core/auth/firebaseError";
+import { useBackendSession } from "../account/BackendSessionContext";
 import { ApiFailureNotice } from "../../shared/components/ApiFailureNotice";
 import { LoadingState } from "../../shared/components/LoadingState";
-import { useBootstrapAccountMutation } from "../account/accountQueries";
+import { destinationSearch, intendedDestination } from "./intendedDestination";
 import type { ForbiddenRouteState } from "./forbiddenRouteState";
 
 interface SignInValidation {
@@ -15,7 +16,7 @@ interface SignInValidation {
 
 export function SignInPage() {
   const auth = useAuthSession();
-  const bootstrap = useBootstrapAccountMutation();
+  const backendSession = useBackendSession();
   const location = useLocation();
   const navigate = useNavigate();
   const nextDestination = useMemo(() => intendedDestination(location.search), [location.search]);
@@ -23,6 +24,59 @@ export function SignInPage() {
   const [password, setPassword] = useState("");
   const [validation, setValidation] = useState<SignInValidation>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingDestination) {
+      return;
+    }
+
+    if (backendSession.state.status === "ready") {
+      queueMicrotask(() => {
+        setPendingDestination(null);
+        setSubmitting(false);
+        void navigate(pendingDestination, { replace: true });
+      });
+      return;
+    }
+
+    if (backendSession.state.status === "verification-required") {
+      queueMicrotask(() => {
+        setPendingDestination(null);
+        setSubmitting(false);
+        void navigate(`/verify-email?${destinationSearch(pendingDestination)}`, { replace: true });
+      });
+      return;
+    }
+
+    if (backendSession.state.status === "blocked") {
+      const routeState: ForbiddenRouteState = {
+        failure: backendSession.state.failure ?? {
+          code: "ACCOUNT_BLOCKED",
+          message: "The backend rejected this local account.",
+          status: 403,
+        },
+      };
+      queueMicrotask(() => {
+        setPendingDestination(null);
+        setSubmitting(false);
+        void navigate("/forbidden", { replace: true, state: routeState });
+      });
+      return;
+    }
+
+    if (backendSession.state.status === "failed") {
+      queueMicrotask(() => {
+        setFailure(
+          backendSession.state.failure?.message ??
+            "The MINIS backend account session could not be initialized.",
+        );
+        setPendingDestination(null);
+        setSubmitting(false);
+      });
+    }
+  }, [backendSession.state, navigate, pendingDestination]);
 
   if (auth.loading) {
     return <LoadingState message="Checking sign-in state" />;
@@ -43,30 +97,55 @@ export function SignInPage() {
     event.preventDefault();
     setFailure(null);
     auth.clearSessionNotice();
-    const nextValidation = validateSignIn(email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const nextValidation = validateSignIn(normalizedEmail, password);
     setValidation(nextValidation);
     if (nextValidation.email || nextValidation.password) {
       return;
     }
 
+    setSubmitting(true);
+    let waitingForBackend = false;
     try {
-      await auth.signInWithEmail(email.trim(), password);
-      await auth.reloadCurrentUser();
-      await bootstrap.mutateAsync();
-      void navigate(nextDestination, { replace: true });
-    } catch (error) {
-      if (error instanceof ApiClientError && error.status === 403) {
-        const state: ForbiddenRouteState = { failure: toApiFailureView(error) };
-        void navigate("/forbidden", { replace: true, state });
+      await auth.signInWithEmail(normalizedEmail, password);
+      const currentUser = await auth.reloadCurrentUser();
+      if (isEmailPasswordUser(currentUser) && !currentUser.emailVerified) {
+        void navigate(`/verify-email?${destinationSearch(nextDestination)}`, { replace: true });
         return;
       }
-      setFailure(error instanceof Error ? error.message : "Sign-in failed.");
+      waitingForBackend = true;
+      setPendingDestination(nextDestination);
+    } catch (error) {
+      setFailure(toAuthenticationFailureMessage(error));
+    } finally {
+      if (!waitingForBackend) {
+        setSubmitting(false);
+      }
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setFailure(null);
+    auth.clearSessionNotice();
+    setSubmitting(true);
+    let waitingForBackend = false;
+    try {
+      await auth.signInWithGoogle();
+      await auth.reloadCurrentUser();
+      waitingForBackend = true;
+      setPendingDestination(nextDestination);
+    } catch (error) {
+      setFailure(toAuthenticationFailureMessage(error));
+    } finally {
+      if (!waitingForBackend) {
+        setSubmitting(false);
+      }
     }
   }
 
   return (
     <section className="auth-panel" aria-labelledby="sign-in-title">
-      <p className="section-kicker">Prepared account</p>
+      <p className="section-kicker">Firebase account</p>
       <h1 id="sign-in-title">Sign in</h1>
       {auth.sessionNotice ? (
         <section className="notice" aria-live="polite">
@@ -122,10 +201,30 @@ export function SignInPage() {
           </p>
         ) : null}
 
-        <button type="submit" disabled={bootstrap.isPending}>
-          {bootstrap.isPending ? "Signing in" : "Sign in"}
+        <button
+          type="submit"
+          disabled={submitting || backendSession.state.status === "provisioning"}
+        >
+          {submitting || backendSession.state.status === "provisioning" ? "Signing in" : "Sign in"}
         </button>
       </form>
+      <div className="auth-divider" role="presentation">
+        <span>or</span>
+      </div>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => {
+          void handleGoogleSignIn();
+        }}
+        disabled={submitting || backendSession.state.status === "provisioning"}
+      >
+        Sign in with Google
+      </button>
+      <p className="muted-link auth-links">
+        <Link to={`/sign-up?${destinationSearch(nextDestination)}`}>Create account</Link>
+        <Link to="/forgot-password">Forgot password</Link>
+      </p>
       <p className="muted-link">
         <Link to="/">Continue as guest</Link>
       </p>
@@ -141,10 +240,9 @@ function validateSignIn(email: string, password: string): SignInValidation {
   };
 }
 
-function intendedDestination(search: string): string {
-  const next = new URLSearchParams(search).get("next");
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/api/")) {
-    return "/account";
+function toAuthenticationFailureMessage(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    return error.message;
   }
-  return next;
+  return toFirebaseAuthMessage(error);
 }

@@ -22,7 +22,13 @@ springdoc:
 logging:
   level:
     com.end.minisbackend: DEBUG
+  pattern:
+    level: "%5p correlationId=%X{correlationId:-} localUserId=%X{localUserId:-} role=%X{role:-}"
 
 minis:
   http:
-    allowed-origins: ${MINIS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${MINIS_LOCAL_ALLOWED_ORIGINS:http://localhost:5173}
+  event-admin:
+    bootstrap:
+      enabled: ${MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED:false}
+      firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}

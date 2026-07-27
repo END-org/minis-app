@@ -12,6 +12,8 @@ public enum ApiErrorCode {
   ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "MINIS account is suspended."),
   ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "MINIS account is disabled."),
   ACCESS_DENIED(HttpStatus.FORBIDDEN, "Access is denied."),
+  RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Resource was not found."),
+  RESOURCE_CONFLICT(HttpStatus.CONFLICT, "Resource conflict."),
   VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Request validation failed."),
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred.");
 

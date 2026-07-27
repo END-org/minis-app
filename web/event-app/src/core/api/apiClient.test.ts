@@ -41,6 +41,17 @@ describe("createApiClient", () => {
     });
   });
 
+  it("reports non-json successful responses as API routing failures", async () => {
+    mockFetch(new Response("<!doctype html>", { headers: { "Content-Type": "text/html" } }));
+    const client = createApiClient("", tokenSource(tokenUser(["viewer-token"])));
+
+    await expect(client.request("/api/v1/creators", { auth: "none" })).rejects.toMatchObject({
+      code: "NON_JSON_API_RESPONSE",
+      kind: "network",
+      status: 200,
+    });
+  });
+
   it("force-refreshes and retries the first safe 401 exactly once", async () => {
     const fetchMock = mockFetch(
       jsonResponse(401, {

@@ -19,6 +19,11 @@ export function GuestHomePage() {
             Sign in
           </Link>
         )}
+        {!user ? (
+          <Link className="button-link button-link--secondary" to="/sign-up">
+            Create account
+          </Link>
+        ) : null}
         <span className="guest-pill">Guest access active</span>
       </div>
     </section>

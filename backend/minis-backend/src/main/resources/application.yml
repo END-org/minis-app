@@ -88,3 +88,8 @@ minis:
 
   http:
     allowed-origins: []
+
+  event-admin:
+    bootstrap:
+      enabled: ${MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED:false}
+      firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}
