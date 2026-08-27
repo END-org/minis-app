@@ -13,6 +13,8 @@ import { SignUpPage } from "../features/authentication/SignUpPage";
 import { VerifyEmailPage } from "../features/authentication/VerifyEmailPage";
 import { CreatorProfilePage } from "../features/creators/CreatorProfilePage";
 import { CreatorsDirectoryPage } from "../features/creators/CreatorsDirectoryPage";
+import { ContentDetailPage } from "../features/feed/ContentDetailPage";
+import { FeedPage } from "../features/feed/FeedPage";
 import { EventShell } from "../shared/layout/EventShell";
 import "../shared/styles/global.css";
 import { AppProviders } from "./AppProviders";
@@ -21,7 +23,9 @@ export function AppRoutes() {
   return (
     <EventShell>
       <Routes>
-        <Route path="/" element={<GuestHomePage />} />
+        <Route path="/" element={<FeedPage />} />
+        <Route path="/guest" element={<GuestHomePage />} />
+        <Route path="/content/:contentId" element={<ContentDetailPage />} />
         <Route path="/creators" element={<CreatorsDirectoryPage />} />
         <Route path="/creators/:slug" element={<CreatorProfilePage />} />
         <Route path="/sign-in" element={<SignInPage />} />

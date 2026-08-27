@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
+The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, imports curated event media, stores media objects in MinIO, exposes public feed/content/category APIs with signed read URLs, supports ADMIN-only content removal, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
 
-Product features such as feed, content, media upload, comments, social interactions, notifications, reports, analytics, chat, and complete user management are not implemented in this baseline.
+Product features such as live media upload, transcoding, thumbnails, comments, social interactions, notifications, reports, analytics, chat, and complete user management are not implemented in this baseline.
 
 ## Prerequisites
 
@@ -18,6 +18,7 @@ Product features such as feed, content, media upload, comments, social interacti
 - Firebase Authentication Google provider enabled.
 - Firebase Web App registered.
 - Firebase Admin service-account JSON generated and kept outside Git.
+- `ffprobe` from FFmpeg when running the curated media importer.
 
 ## Local Environment
 
@@ -84,6 +85,20 @@ Run the local application only after PostgreSQL is available and `GOOGLE_APPLICA
 
 The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO_MINIO_ROOT_USER`, `DEMO_MINIO_ROOT_PASSWORD`, `FIREBASE_PROJECT_ID`, and `GOOGLE_APPLICATION_CREDENTIALS` values.
 
+Content storage values:
+
+```text
+MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT=http://localhost:9000
+MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
+MINIS_CONTENT_STORAGE_BUCKET=minis-event-media
+MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
+MINIS_CONTENT_IMPORTER_FFPROBE_PATH=ffprobe
+```
+
+The demo profile uses `http://minio:9000` internally and `http://localhost:9002` as the default
+browser-reachable signing endpoint. Set `MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=true` only for
+disposable local/demo importer runs where bucket creation is intended.
+
 Optional local/demo event-admin bootstrap:
 
 ```text
@@ -115,7 +130,9 @@ needs, including `Authorization`, `Content-Type`, and `X-Correlation-ID`.
 - Actuator health: `http://localhost:8080/actuator/health`
 - Actuator readiness: `http://localhost:8080/actuator/health/readiness`
 - MinIO console: `http://localhost:9001`
+- Local signed media URL origin: `http://localhost:9000`
 - Demo reverse-proxy health: `http://localhost:8088/healthz`
+- Demo signed media URL origin: `http://localhost:9002`
 
 ## Manual Firebase Browser Test
 
@@ -141,6 +158,27 @@ Creator/admin rehearsal can then verify:
 
 The static page at `/auth-test/index.html` is only a diagnostics launcher. It does not contain Firebase sign-in logic, token display, or credential handling.
 
+## Curated Media Import
+
+The importer is explicit command mode only; it is not a public seed endpoint and does not run during
+normal startup.
+
+From `backend/minis-backend`:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.importer.enabled=true --minis.content.importer.manifest-path=<path-to-private-manifest.json> --minis.content.importer.assets-root=<path-to-private-assets-root> --minis.content.importer.run-id=<safe-run-id>"
+```
+
+Reconciliation command:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.reconciliation.enabled=true --minis.content.reconciliation.run-id=<safe-run-id>"
+```
+
+The importer validates MP4/H.264/AAC vertical video with `ffprobe`, uploads to MinIO, writes
+PostgreSQL metadata, skips matching re-imports, and deletes only newly uploaded objects when database
+persistence fails. See `../../docs/media-and-upload.md` for the full policy.
+
 ## Common Local Errors
 
 - Invalid `GOOGLE_APPLICATION_CREDENTIALS`: set an absolute path to a real development Firebase Admin JSON outside the repository.
@@ -164,6 +202,7 @@ Flyway is the source of truth for the physical schema. Current migrations:
 
 - `src/main/resources/db/migration/V1__create_identity_user_accounts.sql`
 - `src/main/resources/db/migration/V2__create_creator_profiles_and_event_admin_audit.sql`
+- `src/main/resources/db/migration/V3__create_content_items.sql`
 
 - `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
 - `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.

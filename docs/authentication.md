@@ -85,6 +85,11 @@ Only users whose backend role is currently `CREATOR` and status is `ACTIVE` are 
 disabled, or revoked creators keep their profile row but are omitted from the public directory and
 slug lookup.
 
+Published content keeps historical creator attribution even if the creator is later revoked,
+suspended, disabled, or changes profile details. Public content visibility changes only through the
+content status policy: `PUBLISHED` content is visible and `REMOVED` content is hidden. New curated
+imports may only target a currently active creator.
+
 ## Admin Audit
 
 Privileged event-admin operations append audit rows for creator grant/revoke, suspension/reactivate,

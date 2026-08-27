@@ -44,10 +44,19 @@ const TARGET_USER: AdminUserResponse = {
 
 describe("AppRoutes", () => {
   it("renders the guest route", () => {
-    renderWithProviders(<AppRoutes />);
+    renderWithProviders(<AppRoutes />, { route: "/guest" });
 
     expect(screen.getByRole("heading", { name: "MINIS Event" })).toBeInTheDocument();
     expect(screen.getByText("Guest access active")).toBeInTheDocument();
+  });
+
+  it("renders the public feed empty state from the backend", async () => {
+    renderWithProviders(<AppRoutes />, {
+      apiClient: feedApiClient(),
+    });
+
+    expect(await screen.findByRole("heading", { name: "MINIS Event" })).toBeInTheDocument();
+    expect(screen.getByText("No event videos yet")).toBeInTheDocument();
   });
 
   it("redirects protected routes to sign-in while preserving the destination", async () => {
@@ -343,7 +352,7 @@ describe("AppRoutes", () => {
     await user.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(signOut).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Guest access active")).toBeInTheDocument();
+    expect(await screen.findByText("No event videos yet")).toBeInTheDocument();
   });
 
   it("updates the current profile", async () => {
@@ -679,6 +688,24 @@ function accountApiClient(requests: string[] = []): ApiClient {
     requests.push(path);
     if (path === "/api/v1/auth/bootstrap" || path === "/api/v1/me") {
       return Promise.resolve(VIEWER_ACCOUNT);
+    }
+    if (path === "/api/v1/feed?limit=10") {
+      return Promise.resolve({ items: [], limit: 10 });
+    }
+    if (path === "/api/v1/categories") {
+      return Promise.resolve([]);
+    }
+    return Promise.reject(new Error(`Unexpected path ${path}`));
+  });
+}
+
+function feedApiClient(): ApiClient {
+  return testApiClient((path) => {
+    if (path === "/api/v1/feed?limit=10") {
+      return Promise.resolve({ items: [], limit: 10 });
+    }
+    if (path === "/api/v1/categories") {
+      return Promise.resolve([]);
     }
     return Promise.reject(new Error(`Unexpected path ${path}`));
   });

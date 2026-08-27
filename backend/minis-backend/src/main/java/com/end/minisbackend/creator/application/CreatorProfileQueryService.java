@@ -3,6 +3,7 @@ package com.end.minisbackend.creator.application;
 import com.end.minisbackend.creator.domain.CreatorSlug;
 import com.end.minisbackend.shared.error.ApiErrorCode;
 import com.end.minisbackend.shared.error.ApiException;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -35,6 +36,14 @@ public class CreatorProfileQueryService {
     transaction.setReadOnly(true);
     return transaction
         .execute(status -> creatorProfileStore.findPublicBySlug(normalizedSlug))
+        .orElseThrow(() -> new ApiException(ApiErrorCode.RESOURCE_NOT_FOUND));
+  }
+
+  public CreatorProfileView publicCreatorByUserId(UUID userId) {
+    TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+    transaction.setReadOnly(true);
+    return transaction
+        .execute(status -> creatorProfileStore.findPublicByUserId(userId))
         .orElseThrow(() -> new ApiException(ApiErrorCode.RESOURCE_NOT_FOUND));
   }
 

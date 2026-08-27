@@ -10,6 +10,8 @@ public interface CreatorProfileStore {
 
   Optional<CreatorProfileView> findPublicBySlug(String slug);
 
+  Optional<CreatorProfileView> findPublicByUserId(UUID userId);
+
   CreatorDirectoryPage findPublicCreators(int page, int size);
 
   List<CreatorProfileView> findByUserIds(List<UUID> userIds);

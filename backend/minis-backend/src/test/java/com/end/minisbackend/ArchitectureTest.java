@@ -101,6 +101,15 @@ class ArchitectureTest {
           .resideInAPackage("..admin.infrastructure..");
 
   @ArchTest
+  static final ArchRule contentInfrastructureIsInternal =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("..content.infrastructure..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("..content.infrastructure..");
+
+  @ArchTest
   static final ArchRule featurePackagesAreFreeOfCycles =
       slices().matching("com.end.minisbackend.(*)..").should().beFreeOfCycles();
 }

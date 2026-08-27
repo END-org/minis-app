@@ -18,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.end.minisbackend.TestIdentities;
 import com.end.minisbackend.admin.application.AdminUserPage;
 import com.end.minisbackend.admin.application.EventAdminService;
+import com.end.minisbackend.content.application.ContentAdministrationService;
+import com.end.minisbackend.content.application.ContentStorage;
+import com.end.minisbackend.content.application.SignedReadUrl;
 import com.end.minisbackend.identity.application.FirebaseTokenVerifier;
 import com.end.minisbackend.identity.application.LocalUserIdentity;
 import com.end.minisbackend.identity.application.LocalUserIdentityGateway;
@@ -30,6 +33,7 @@ import com.end.minisbackend.shared.error.ApiException;
 import com.end.minisbackend.shared.security.CorrelationId;
 import com.end.minisbackend.shared.security.MinisAuthenticationException;
 import com.end.minisbackend.user.application.CurrentUserService;
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -62,10 +66,17 @@ class SecurityIntegrationTest {
   @MockitoBean private UserAccountProvisioningGateway userAccountProvisioningGateway;
   @MockitoBean private CurrentUserService currentUserService;
   @MockitoBean private EventAdminService eventAdminService;
+  @MockitoBean private ContentAdministrationService contentAdministrationService;
+  @MockitoBean private ContentStorage contentStorage;
 
   @BeforeEach
   void setUp() {
     when(localUserIdentityGateway.findByFirebaseUid(any())).thenReturn(Optional.empty());
+    when(contentStorage.signedReadUrl(any()))
+        .thenReturn(
+            new SignedReadUrl(
+                URI.create("http://localhost:9000/minis-event-media/content/imports/test.mp4"),
+                Instant.parse("2026-07-17T12:10:00Z")));
   }
 
   @Test
@@ -81,6 +92,13 @@ class SecurityIntegrationTest {
   @Test
   void publicCreatorsEndpointAllowsGuestAccess() throws Exception {
     mockMvc.perform(get("/api/v1/creators")).andExpect(status().isOk());
+    verifyNoInteractions(firebaseTokenVerifier);
+  }
+
+  @Test
+  void publicContentDiscoveryEndpointsAllowGuestAccess() throws Exception {
+    mockMvc.perform(get("/api/v1/categories")).andExpect(status().isOk());
+    mockMvc.perform(get("/api/v1/feed")).andExpect(status().isOk());
     verifyNoInteractions(firebaseTokenVerifier);
   }
 
@@ -328,6 +346,72 @@ class SecurityIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, bearer("event-admin-token")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.users").isArray());
+  }
+
+  @Test
+  void guestCannotRemoveContent() throws Exception {
+    mockMvc
+        .perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                    "/api/v1/admin/content/{contentId}/removal", UUID.randomUUID())
+                .contentType("application/json")
+                .content("{\"reason\":\"event cleanup\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code", is("MISSING_AUTH_TOKEN")));
+    verifyNoInteractions(contentAdministrationService);
+  }
+
+  @Test
+  void viewerCannotRemoveContent() throws Exception {
+    registerToken(
+        "content-removal-viewer",
+        Optional.of(new LocalUserIdentity(UUID.randomUUID(), "VIEWER", "ACTIVE")));
+
+    mockMvc
+        .perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                    "/api/v1/admin/content/{contentId}/removal", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, bearer("content-removal-viewer-token"))
+                .contentType("application/json")
+                .content("{\"reason\":\"event cleanup\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code", is("ACCESS_DENIED")));
+    verifyNoInteractions(contentAdministrationService);
+  }
+
+  @Test
+  void creatorCannotRemoveContent() throws Exception {
+    registerToken(
+        "content-removal-creator",
+        Optional.of(new LocalUserIdentity(UUID.randomUUID(), "CREATOR", "ACTIVE")));
+
+    mockMvc
+        .perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                    "/api/v1/admin/content/{contentId}/removal", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, bearer("content-removal-creator-token"))
+                .contentType("application/json")
+                .content("{\"reason\":\"event cleanup\"}"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code", is("ACCESS_DENIED")));
+    verifyNoInteractions(contentAdministrationService);
+  }
+
+  @Test
+  void adminCanRemoveContent() throws Exception {
+    UUID adminId = UUID.randomUUID();
+    UUID contentId = UUID.randomUUID();
+    registerToken(
+        "content-removal-admin", Optional.of(new LocalUserIdentity(adminId, "ADMIN", "ACTIVE")));
+
+    mockMvc
+        .perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                    "/api/v1/admin/content/{contentId}/removal", contentId)
+                .header(HttpHeaders.AUTHORIZATION, bearer("content-removal-admin-token"))
+                .contentType("application/json")
+                .content("{\"reason\":\"event cleanup\"}"))
+        .andExpect(status().isNoContent());
   }
 
   @Test

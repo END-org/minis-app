@@ -54,3 +54,11 @@ minis:
     bootstrap:
       enabled: ${MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED:false}
       firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}
+  content:
+    storage:
+      internal-endpoint: ${MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT:http://minio:9000}
+      public-endpoint: ${MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT:http://localhost:${DEMO_MINIO_API_PORT:9002}}
+      access-key: ${MINIS_CONTENT_STORAGE_ACCESS_KEY:${DEMO_MINIO_ROOT_USER}}
+      secret-key: ${MINIS_CONTENT_STORAGE_SECRET_KEY:${DEMO_MINIO_ROOT_PASSWORD}}
+      bucket: ${MINIS_CONTENT_STORAGE_BUCKET:minis-event-media}
+      auto-create-bucket: ${MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET:false}

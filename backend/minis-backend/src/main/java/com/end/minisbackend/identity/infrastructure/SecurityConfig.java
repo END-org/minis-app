@@ -44,6 +44,10 @@ public class SecurityConfig {
               requests
                   .requestMatchers(HttpMethod.GET, "/api/v1/creators", "/api/v1/creators/**")
                   .permitAll();
+              requests
+                  .requestMatchers(
+                      HttpMethod.GET, "/api/v1/categories", "/api/v1/feed", "/api/v1/content/**")
+                  .permitAll();
               if (developmentProfile) {
                 requests
                     .requestMatchers("/auth-test/**", "/api/v1/dev/firebase-web-config")

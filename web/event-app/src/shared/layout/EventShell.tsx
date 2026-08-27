@@ -26,7 +26,7 @@ export function EventShell({ children }: EventShellProps) {
           <span>MINIS Event</span>
         </Link>
         <nav className="top-nav" aria-label="Primary navigation">
-          <NavLink to="/">Home</NavLink>
+          <NavLink to="/">Feed</NavLink>
           <NavLink to="/creators">Creators</NavLink>
           {isReady ? (
             <NavLink to="/account">Account</NavLink>

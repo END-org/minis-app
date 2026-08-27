@@ -60,6 +60,26 @@ class CreatorProfilePersistenceAdapter implements CreatorProfileStore {
   }
 
   @Override
+  public Optional<CreatorProfileView> findPublicByUserId(UUID userId) {
+    List<CreatorProfileView> creators =
+        jdbcTemplate.query(
+            """
+            select
+            """
+                + PUBLIC_CREATOR_COLUMNS
+                + """
+            from creator_profiles p
+              join user_accounts u on u.id = p.user_id
+            where p.user_id = ?
+              and u.role = 'CREATOR'
+              and u.status = 'ACTIVE'
+            """,
+            rowMapper,
+            userId);
+    return creators.stream().findFirst();
+  }
+
+  @Override
   public CreatorDirectoryPage findPublicCreators(int page, int size) {
     List<CreatorProfileView> creators =
         jdbcTemplate.query(

@@ -7,6 +7,7 @@
 - Docker Desktop or another Docker engine compatible with Testcontainers.
 - Firebase development project with Email/Password and Google providers enabled.
 - Firebase Admin service-account JSON stored outside the repository.
+- `ffprobe` from FFmpeg for curated media import.
 
 ## Local Infrastructure
 
@@ -24,7 +25,8 @@ Copy-Item .env.example .env
 docker compose -f compose.local.yml up -d
 ```
 
-The default local PostgreSQL database is `minis_event_local`. MinIO is available at `http://localhost:9001`.
+The default local PostgreSQL database is `minis_event_local`. MinIO is available at
+`http://localhost:9000` for object API access and `http://localhost:9001` for the console.
 
 ## Backend Startup
 
@@ -94,6 +96,27 @@ MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=<firebase-uid-1>,<firebase-uid-2>
 
 Do not use email addresses for this allowlist, and do not enable it outside `local` or `demo`.
 
+## Curated Media Import
+
+The event feed is populated by a private untracked manifest and local/demo MinIO. The importer
+requires `ffprobe` and only accepts the bounded event MP4/H.264/AAC vertical profile described in
+`media-and-upload.md`.
+
+From `backend/minis-backend`, after PostgreSQL and MinIO are healthy:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.importer.enabled=true --minis.content.importer.manifest-path=<path-to-private-manifest.json> --minis.content.importer.assets-root=<path-to-private-assets-root> --minis.content.importer.run-id=<safe-run-id>"
+```
+
+Run reconciliation with:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.reconciliation.enabled=true --minis.content.reconciliation.run-id=<safe-run-id>"
+```
+
+Local signed media URLs default to `http://localhost:9000`. They must not contain Docker-internal
+hostnames such as `minio:9000`.
+
 ## Verification
 
 From `backend/minis-backend`:
@@ -115,7 +138,8 @@ npm run build
 
 ## Flyway and Old Volumes
 
-Flyway creates the identity, creator-profile, and event-admin audit schema on a clean PostgreSQL database. Hibernate only validates the migrated schema.
+Flyway creates the identity, creator-profile, event-admin audit, and content metadata schema on a
+clean PostgreSQL database. Hibernate only validates the migrated schema.
 
 Unknown older Hibernate-created schemas are not adopted automatically. For disposable local data, reset both PostgreSQL and MinIO volumes explicitly:
 

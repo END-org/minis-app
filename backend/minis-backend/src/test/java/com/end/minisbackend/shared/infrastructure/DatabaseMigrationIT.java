@@ -34,10 +34,11 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "demo", "test")) {
         assertThat(
                 queryForInt(database, "select count(*) from flyway_schema_history where success"))
-            .isEqualTo(2);
+            .isEqualTo(3);
         assertThat(tableExists(database, "user_accounts")).isTrue();
         assertThat(tableExists(database, "creator_profiles")).isTrue();
         assertThat(tableExists(database, "event_admin_audit_entries")).isTrue();
+        assertThat(tableExists(database, "content_items")).isTrue();
       }
 
       List<String> schemaAfterFirstStartup = schemaFingerprint(database);
@@ -67,12 +68,37 @@ class DatabaseMigrationIT {
       assertThatThrownBy(() -> insertUser(database, "invalid-status-user", "VIEWER", "LOCKED"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       insertCreatorProfile(database, creatorUserId, "event-creator");
+      insertContent(database, creatorUserId, "source-1", "PUBLISHED", "EDUCATION", 1024L, 30_000L);
       assertThatThrownBy(() -> insertCreatorProfile(database, creatorUserId, "event-creator"))
           .satisfies(throwable -> assertSqlState(throwable, "23505"));
       assertThatThrownBy(() -> insertCreatorProfile(database, badSlugUserId, "bad slug"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       insertAudit(database, creatorUserId, creatorUserId, "CREATOR_GRANTED");
       assertThatThrownBy(() -> insertAudit(database, creatorUserId, creatorUserId, "ROLE_CHANGED"))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(
+              () ->
+                  insertContent(
+                      database, creatorUserId, "source-1", "PUBLISHED", "EDUCATION", 1L, 1L))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(
+              () ->
+                  insertContent(
+                      database, creatorUserId, "source-2", "PUBLISHED", "UNKNOWN", 1L, 1L))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(
+              () ->
+                  insertContent(database, creatorUserId, "source-3", "HIDDEN", "EDUCATION", 1L, 1L))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(
+              () ->
+                  insertContent(
+                      database, creatorUserId, "source-4", "PUBLISHED", "EDUCATION", 0L, 1L))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(
+              () ->
+                  insertContent(
+                      database, creatorUserId, "source-5", "PUBLISHED", "EDUCATION", 1L, 0L))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
     }
   }
@@ -263,6 +289,60 @@ class DatabaseMigrationIT {
       statement.setObject(2, actorId);
       statement.setObject(3, targetId);
       statement.setString(4, action);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertContent(
+      PostgreSQLContainer<?> database,
+      UUID creatorUserId,
+      String importSourceKey,
+      String status,
+      String category,
+      long mediaSizeBytes,
+      Long durationMs)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_items (
+                  id,
+                  creator_user_id,
+                  title,
+                  description,
+                  category,
+                  media_object_key,
+                  media_content_type,
+                  media_size_bytes,
+                  duration_ms,
+                  status,
+                  import_source_key,
+                  created_at,
+                  published_at,
+                  removed_at,
+                  removal_reason
+                ) values (
+                  ?, ?, 'Event title', 'Event description', ?, ?, 'video/mp4', ?, ?, ?, ?,
+                  current_timestamp, current_timestamp,
+                  case when ? = 'REMOVED' then current_timestamp else null end,
+                  case when ? = 'REMOVED' then 'admin removal' else null end
+                )
+                """)) {
+      statement.setObject(1, UUID.randomUUID());
+      statement.setObject(2, creatorUserId);
+      statement.setString(3, category);
+      statement.setString(4, "content/imports/" + importSourceKey + ".mp4");
+      statement.setLong(5, mediaSizeBytes);
+      if (durationMs == null) {
+        statement.setNull(6, java.sql.Types.BIGINT);
+      } else {
+        statement.setLong(6, durationMs);
+      }
+      statement.setString(7, status);
+      statement.setString(8, importSourceKey);
+      statement.setString(9, status);
+      statement.setString(10, status);
       statement.executeUpdate();
     }
   }

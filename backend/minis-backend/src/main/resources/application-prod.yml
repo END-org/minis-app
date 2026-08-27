@@ -32,3 +32,11 @@ logging:
 minis:
   http:
     allowed-origins: ${MINIS_PROD_ALLOWED_ORIGINS:}
+  content:
+    storage:
+      internal-endpoint: ${MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT:}
+      public-endpoint: ${MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT:}
+      access-key: ${MINIS_CONTENT_STORAGE_ACCESS_KEY:}
+      secret-key: ${MINIS_CONTENT_STORAGE_SECRET_KEY:}
+      bucket: ${MINIS_CONTENT_STORAGE_BUCKET:minis-event-media}
+      auto-create-bucket: ${MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET:false}

@@ -84,8 +84,11 @@ On the first retry-safe 401, the API client force-refreshes the Firebase ID toke
 
 ## Event Screens
 
-- `/` supports guest entry.
+- `/` loads the guest-accessible vertical feed from `GET /api/v1/feed`.
+- `/content/:contentId` loads a public playable content projection.
 - `/creators` and `/creators/:slug` load public active creators without authentication.
+- `/creators/:slug` also loads public creator content from `GET /api/v1/creators/{slug}/content`.
+- `/guest` keeps the simple guest/diagnostic landing surface.
 - `/sign-in`, `/sign-up`, `/verify-email`, and `/forgot-password` own Firebase browser authentication flows.
 - `/account` uses the provisioned backend account projection and allows the signed-in user to edit
   only display name, avatar URL, and bio.
@@ -95,6 +98,18 @@ On the first retry-safe 401, the API client force-refreshes the Firebase ID toke
 
 Role, account status, and creator verification are displayed only from backend responses.
 
+## Media Feed Behavior
+
+The feed uses the same public projection for guests and authenticated users. Signed media URLs are
+not cached as content identity and are not stored outside the TanStack Query cache. The active feed
+item is detected with `IntersectionObserver`, starts muted, pauses off-screen media, and keeps only
+the active item plus one neighboring item mounted as video elements. Distant items retain metadata
+but release media resources.
+
+If media fails near or after the signed URL expiration time, the client refreshes the projection once
+and retries playback once. Failures well before expiration show a broken-media state and do not
+create a retry loop.
+
 ## Demo Routing
 
 The demo proxy builds this app into NGINX. `/api/`, `/healthz`, `/auth-test/`, `/swagger-ui/`, and `/v3/api-docs` are matched before SPA fallback. Unknown frontend routes return `index.html`; unknown API routes remain backend responses.
@@ -103,6 +118,10 @@ The demo proxy builds this app into NGINX. `/api/`, `/healthz`, `/auth-test/`, `
 
 - Missing Firebase config: set all required public `VITE_FIREBASE_*` values.
 - Local NETWORK error on `/account` or `/creators`: keep `VITE_API_BASE_URL` blank, run Vite on `http://localhost:5173`, and confirm the backend is reachable at `http://localhost:8080`.
+- Broken feed media with `minio:9000` in the URL: the backend signing endpoint is wrong; set
+  `MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT` to the browser-reachable MinIO origin.
+- Expired media URL: refresh the feed or content route. The client automatically retries once when
+  the expiry timing indicates that a signed URL probably expired.
 - Local API CORS failure after changing ports: run the backend with the `local` profile and set `MINIS_LOCAL_ALLOWED_ORIGINS` to the exact React origin.
 - 401 after sign-in: refresh or sign in again; the client retries a safe 401 only once.
 - 403 after sign-in: the Firebase identity is valid, but the backend-owned local MINIS account is disabled, suspended, unverified for password bootstrap, unprovisioned, or not authorized.

@@ -11,6 +11,9 @@
 
 The reverse proxy serves `/api/` to Spring Boot, exposes backend readiness at `/healthz`, preserves or generates `X-Correlation-ID`, forwards host/protocol headers, sets request-size and timeout defaults, serves React at `/`, and falls back unknown frontend routes to the SPA shell.
 
+Signed media URLs are generated for the browser-reachable MinIO origin, `http://localhost:9002` by
+default. NGINX does not path-prefix or rewrite signed media URLs.
+
 ## Required Environment Variables
 
 Set these values in the shell or a local untracked `.env` file before starting demo compose:
@@ -36,6 +39,8 @@ DEMO_POSTGRES_PORT=5434
 DEMO_MINIO_API_PORT=9002
 DEMO_MINIO_CONSOLE_PORT=9003
 DEMO_HTTP_PORT=8088
+MINIS_CONTENT_STORAGE_BUCKET=minis-event-media
+MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
 MINIS_DEMO_ALLOWED_ORIGINS=http://localhost:8088
 MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED=false
 MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=
@@ -43,6 +48,9 @@ MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=
 
 Demo serves React and `/api/` under one public NGINX origin, `http://localhost:8088` by default. NGINX forwards normal request headers upstream, so the backend demo profile explicitly allows `MINIS_DEMO_ALLOWED_ORIGINS`. Do not reuse the local CORS variable for demo, and do not use wildcard credentialed CORS.
 Event-admin bootstrap is local/demo only, disabled by default, and accepts Firebase UIDs only.
+
+The demo backend uses `http://minio:9000` internally and signs public media URLs for
+`http://localhost:${DEMO_MINIO_API_PORT}`. Do not return `minio:9000` to browsers.
 
 ## Startup
 
@@ -59,6 +67,9 @@ curl -i http://localhost:8088/healthz
 ```
 
 The React event app is at `http://localhost:8088/`. The backend diagnostic launcher is at `http://localhost:8088/auth-test/index.html`.
+
+MinIO object API for browser media playback is at `http://localhost:9002` by default. The console is
+at `http://localhost:9003`.
 
 Nested frontend routes, such as `http://localhost:8088/account`, refresh through NGINX and return the React shell. Unknown `/api/` routes are proxied to Spring Boot and do not return React HTML.
 
@@ -82,6 +93,9 @@ Manual rehearsal requires Firebase Email/Password and Google providers enabled f
 - event admin can grant creator capability, verify the creator, suspend/reactivate an account, and
   revoke creator capability without deleting the creator profile.
 - public creator routes show only active accounts with the current backend `CREATOR` role.
+- imported event videos appear in the guest feed and public creator content pages.
+- browser media URLs contain the browser-reachable MinIO origin, not Docker service names.
+- Range requests against a signed media URL return `206 Partial Content`.
 
 Do not store prepared-account passwords or Firebase Admin credentials in Git, screenshots, docs, frontend bundles, or static diagnostics.
 
@@ -114,3 +128,10 @@ docker compose -f compose.demo.yml up -d --build
 The event database must be a dedicated clean database. Flyway `baselineOnMigrate` is not enabled globally, and application startup does not silently adopt unknown Hibernate-created schemas.
 
 Preserving an old database requires a separate backup, restore rehearsal, schema comparison, and explicit Flyway baseline decision before deployment.
+
+## Golden Media Snapshot
+
+After final media import, create a PostgreSQL backup and MinIO bucket mirror before the event. Record
+Flyway version, manifest identifier, media-policy ID, PUBLISHED count, REMOVED count, object count,
+and asset checksums. Restore PostgreSQL first, restore the MinIO bucket second, then run content
+reconciliation and verify feed playback. The detailed procedure is in `media-and-upload.md`.

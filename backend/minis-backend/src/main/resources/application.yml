@@ -93,3 +93,22 @@ minis:
     bootstrap:
       enabled: ${MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED:false}
       firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}
+
+  content:
+    storage:
+      internal-endpoint: ${MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT:}
+      public-endpoint: ${MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT:}
+      access-key: ${MINIS_CONTENT_STORAGE_ACCESS_KEY:}
+      secret-key: ${MINIS_CONTENT_STORAGE_SECRET_KEY:}
+      bucket: ${MINIS_CONTENT_STORAGE_BUCKET:minis-event-media}
+      signed-read-lifetime: ${MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME:PT10M}
+      auto-create-bucket: ${MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET:false}
+    importer:
+      enabled: ${MINIS_CONTENT_IMPORTER_ENABLED:false}
+      manifest-path: ${MINIS_CONTENT_IMPORTER_MANIFEST_PATH:}
+      assets-root: ${MINIS_CONTENT_IMPORTER_ASSETS_ROOT:}
+      ffprobe-path: ${MINIS_CONTENT_IMPORTER_FFPROBE_PATH:ffprobe}
+      probe-timeout: ${MINIS_CONTENT_IMPORTER_PROBE_TIMEOUT:PT10S}
+      max-probe-output-bytes: ${MINIS_CONTENT_IMPORTER_MAX_PROBE_OUTPUT_BYTES:1048576}
+    reconciliation:
+      enabled: ${MINIS_CONTENT_RECONCILIATION_ENABLED:false}

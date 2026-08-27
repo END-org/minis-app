@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { toApiFailureView } from "../../core/errors/apiError";
 import { ApiFailureNotice } from "../../shared/components/ApiFailureNotice";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { CreatorContentSection } from "../feed/CreatorContentSection";
 import { useCreatorQuery } from "./creatorQueries";
 
 export function CreatorProfilePage() {
@@ -42,6 +43,7 @@ export function CreatorProfilePage() {
       <h1 id="creator-title">{creator.data.displayName}</h1>
       {creator.data.verified ? <p className="status-pill">Verified creator</p> : null}
       {creator.data.bio ? <p className="lead">{creator.data.bio}</p> : null}
+      <CreatorContentSection slug={creator.data.slug} />
       <p className="muted-link">
         <Link to="/creators">Back to creators</Link>
       </p>

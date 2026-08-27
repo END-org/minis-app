@@ -90,13 +90,34 @@ Document:
 
 - `../adr/0003-firebase-authentication-integration.md`
 
+## ADR-0004: Event Media Read Path
+
+**Status:** Accepted
+
+Decision:
+
+```text
+Curated event videos are imported through an explicit command mode.
+ffprobe inspects but never modifies media.
+Only the event MP4/H.264/AAC vertical profile is supported.
+MinIO stores media objects.
+PostgreSQL stores metadata.
+Spring Boot generates short-lived signed read URLs at response time.
+The demo uses a browser-reachable MinIO origin instead of rewriting signed URLs.
+Live upload and media processing remain deferred.
+```
+
+Document:
+
+- `../adr/0004-event-media-read-path.md`
+
 ## 3. Direction Selected, Dedicated ADR Still Required
 
 These items have an agreed direction, but important operational and
 implementation details still need a separate ADR or technical design before
 the corresponding feature is implemented.
 
-## 3.1 Media Storage and Upload Strategy
+## 3.1 Live Media Upload Strategy
 
 **Current direction:**
 
@@ -104,6 +125,7 @@ the corresponding feature is implemented.
 - Initial deployment is on the project VPS.
 - Application metadata remains in PostgreSQL.
 - Binary media is not stored in PostgreSQL.
+- Phase 4 decided the curated read path only; live upload remains undecided.
 
 **ADR needed:** Yes
 
@@ -122,7 +144,7 @@ the corresponding feature is implemented.
 **Proposed ADR:**
 
 ```text
-ADR-0004: MinIO Media Storage and Upload Strategy
+ADR-0005: Live Media Upload Strategy
 ```
 
 ## 3.2 Media Processing Strategy
@@ -156,7 +178,7 @@ ADR-0004: MinIO Media Storage and Upload Strategy
 **Proposed ADR:**
 
 ```text
-ADR-0005: Asynchronous FFmpeg Media Processing
+ADR-0006: Asynchronous FFmpeg Media Processing
 ```
 
 A separate technical design should follow the ADR.
