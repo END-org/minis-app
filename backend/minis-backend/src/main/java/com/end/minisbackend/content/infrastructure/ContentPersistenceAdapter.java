@@ -18,24 +18,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStore {
-  private static final String PUBLIC_CONTENT_COLUMNS =
-      """
-      c.id,
-      c.creator_user_id,
-      p.public_slug,
-      p.public_display_name,
-      p.avatar_url,
-      p.verified,
-      c.title,
-      c.description,
-      c.category,
-      c.media_object_key,
-      c.media_content_type,
-      c.media_size_bytes,
-      c.duration_ms,
-      c.published_at
-      """;
-
   private final ContentItemRepository repository;
   private final JdbcTemplate jdbcTemplate;
   private final PublishedContentViewRowMapper rowMapper;
@@ -80,7 +62,7 @@ class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStor
             """
             select
             """);
-    sql.append(PUBLIC_CONTENT_COLUMNS)
+    sql.append(PublishedContentSelect.COLUMNS)
         .append(
             """
             from content_items c
@@ -107,7 +89,7 @@ class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStor
             """
             select
             """);
-    sql.append(PUBLIC_CONTENT_COLUMNS)
+    sql.append(PublishedContentSelect.COLUMNS)
         .append(
             """
             from content_items c
@@ -128,7 +110,7 @@ class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStor
             """
             select
             """
-                + PUBLIC_CONTENT_COLUMNS
+                + PublishedContentSelect.COLUMNS
                 + """
             from content_items c
               join creator_profiles p on p.user_id = c.creator_user_id

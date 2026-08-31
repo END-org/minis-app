@@ -168,9 +168,9 @@ npm run build
 
 ## Flyway and Old Volumes
 
-Flyway creates and upgrades the identity, creator-profile, event-admin audit, and content metadata
-schema. A valid V1-V3 local database upgrades automatically to V4, after which Hibernate validates
-the migrated schema. Existing rows and named Docker volumes are preserved.
+Flyway creates and upgrades the identity, creator-profile, event-admin audit, content metadata, and
+social relationship schema. A valid V1-V4 local database upgrades automatically to V5, after which
+Hibernate validates the migrated schema. Existing rows and named Docker volumes are preserved.
 
 After backend startup, inspect migration history without changing it:
 

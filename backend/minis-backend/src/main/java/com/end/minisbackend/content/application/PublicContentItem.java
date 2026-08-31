@@ -11,4 +11,8 @@ public record PublicContentItem(
     String category,
     String categoryLabel,
     SignedMediaReference media,
-    Instant publishedAt) {}
+    Instant publishedAt,
+    long likeCount,
+    boolean liked,
+    boolean saved,
+    boolean following) {}

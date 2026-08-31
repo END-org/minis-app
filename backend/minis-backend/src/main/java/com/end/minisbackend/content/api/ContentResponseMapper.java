@@ -32,6 +32,10 @@ final class ContentResponseMapper {
             item.media().contentType(),
             item.media().sizeBytes(),
             item.media().durationMs()),
-        item.publishedAt());
+        item.publishedAt(),
+        item.likeCount(),
+        item.liked(),
+        item.saved(),
+        item.following());
   }
 }

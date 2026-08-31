@@ -34,13 +34,23 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "demo", "test")) {
         assertThat(
                 queryForInt(database, "select count(*) from flyway_schema_history where success"))
-            .isEqualTo(4);
+            .isEqualTo(5);
         assertThat(tableExists(database, "user_accounts")).isTrue();
         assertThat(tableExists(database, "creator_profiles")).isTrue();
         assertThat(tableExists(database, "event_admin_audit_entries")).isTrue();
         assertThat(tableExists(database, "content_items")).isTrue();
+        assertThat(tableExists(database, "content_likes")).isTrue();
+        assertThat(tableExists(database, "content_saves")).isTrue();
+        assertThat(tableExists(database, "creator_follows")).isTrue();
         assertThat(indexExists(database, "idx_content_items_unfiltered_public_feed")).isTrue();
         assertThat(indexExists(database, "idx_content_items_published_reconciliation")).isTrue();
+        assertThat(indexExists(database, "idx_content_likes_content_id")).isTrue();
+        assertThat(indexExists(database, "idx_content_likes_user_created_at_content_id")).isTrue();
+        assertThat(indexExists(database, "idx_content_saves_user_created_at_content_id")).isTrue();
+        assertThat(constraintExists(database, "pk_content_likes")).isTrue();
+        assertThat(constraintExists(database, "pk_content_saves")).isTrue();
+        assertThat(constraintExists(database, "pk_creator_follows")).isTrue();
+        assertThat(constraintExists(database, "ck_creator_follows_no_self_follow")).isTrue();
       }
 
       List<String> schemaAfterFirstStartup = schemaFingerprint(database);
@@ -60,6 +70,8 @@ class DatabaseMigrationIT {
 
       insertUser(database, "constraint-user", "VIEWER", "ACTIVE");
       UUID creatorUserId = userId(database, "constraint-user");
+      insertUser(database, "constraint-follower", "VIEWER", "ACTIVE");
+      UUID followerUserId = userId(database, "constraint-follower");
       insertUser(database, "bad-slug-user", "VIEWER", "ACTIVE");
       UUID badSlugUserId = userId(database, "bad-slug-user");
 
@@ -70,13 +82,26 @@ class DatabaseMigrationIT {
       assertThatThrownBy(() -> insertUser(database, "invalid-status-user", "VIEWER", "LOCKED"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       insertCreatorProfile(database, creatorUserId, "event-creator");
-      insertContent(database, creatorUserId, "source-1", "PUBLISHED", "EDUCATION", 1024L, 30_000L);
+      UUID contentId =
+          insertContent(
+              database, creatorUserId, "source-1", "PUBLISHED", "EDUCATION", 1024L, 30_000L);
       assertThatThrownBy(() -> insertCreatorProfile(database, creatorUserId, "event-creator"))
           .satisfies(throwable -> assertSqlState(throwable, "23505"));
       assertThatThrownBy(() -> insertCreatorProfile(database, badSlugUserId, "bad slug"))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       insertAudit(database, creatorUserId, creatorUserId, "CREATOR_GRANTED");
       assertThatThrownBy(() -> insertAudit(database, creatorUserId, creatorUserId, "ROLE_CHANGED"))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      insertLike(database, followerUserId, contentId);
+      insertSave(database, followerUserId, contentId);
+      insertFollow(database, followerUserId, creatorUserId);
+      assertThatThrownBy(() -> insertLike(database, followerUserId, contentId))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(() -> insertSave(database, followerUserId, contentId))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(() -> insertFollow(database, followerUserId, creatorUserId))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(() -> insertFollow(database, creatorUserId, creatorUserId))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
       assertThatThrownBy(
               () ->
@@ -179,6 +204,19 @@ class DatabaseMigrationIT {
             connection.prepareStatement(
                 "select count(*) from pg_indexes where schemaname = 'public' and indexname = ?")) {
       statement.setString(1, indexName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1) == 1;
+      }
+    }
+  }
+
+  private static boolean constraintExists(PostgreSQLContainer<?> database, String constraintName)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement("select count(*) from pg_constraint where conname = ?")) {
+      statement.setString(1, constraintName);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1) == 1;
@@ -309,7 +347,7 @@ class DatabaseMigrationIT {
     }
   }
 
-  private static void insertContent(
+  private static UUID insertContent(
       PostgreSQLContainer<?> database,
       UUID creatorUserId,
       String importSourceKey,
@@ -318,6 +356,7 @@ class DatabaseMigrationIT {
       long mediaSizeBytes,
       Long durationMs)
       throws SQLException {
+    UUID contentId = UUID.randomUUID();
     try (Connection connection = connection(database);
         PreparedStatement statement =
             connection.prepareStatement(
@@ -345,7 +384,7 @@ class DatabaseMigrationIT {
                   case when ? = 'REMOVED' then 'admin removal' else null end
                 )
                 """)) {
-      statement.setObject(1, UUID.randomUUID());
+      statement.setObject(1, contentId);
       statement.setObject(2, creatorUserId);
       statement.setString(3, category);
       statement.setString(4, "content/imports/" + importSourceKey + ".mp4");
@@ -359,6 +398,56 @@ class DatabaseMigrationIT {
       statement.setString(8, importSourceKey);
       statement.setString(9, status);
       statement.setString(10, status);
+      statement.executeUpdate();
+    }
+    return contentId;
+  }
+
+  private static void insertLike(PostgreSQLContainer<?> database, UUID userId, UUID contentId)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_likes (
+                  user_id, content_id, created_at
+                ) values (?, ?, current_timestamp)
+                """)) {
+      statement.setObject(1, userId);
+      statement.setObject(2, contentId);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertSave(PostgreSQLContainer<?> database, UUID userId, UUID contentId)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_saves (
+                  user_id, content_id, created_at
+                ) values (?, ?, current_timestamp)
+                """)) {
+      statement.setObject(1, userId);
+      statement.setObject(2, contentId);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertFollow(
+      PostgreSQLContainer<?> database, UUID followerUserId, UUID creatorUserId)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into creator_follows (
+                  follower_user_id, creator_user_id, created_at
+                ) values (?, ?, current_timestamp)
+                """)) {
+      statement.setObject(1, followerUserId);
+      statement.setObject(2, creatorUserId);
       statement.executeUpdate();
     }
   }

@@ -101,6 +101,8 @@ Manual rehearsal requires Firebase Email/Password and Google providers enabled f
   revoke creator capability without deleting the creator profile.
 - public creator routes show only active accounts with the current backend `CREATOR` role.
 - imported event videos appear in the guest feed and public creator content pages.
+- authenticated active users can like, save, and follow through backend APIs after content exists.
+- guest feed responses include `likeCount`, `liked=false`, `saved=false`, and `following=false`.
 - browser media URLs contain the browser-reachable MinIO origin, not Docker service names.
 - Range requests against a signed media URL return `206 Partial Content`.
 

@@ -29,4 +29,12 @@
     <Class name="com.end.minisbackend.content.application.PublicContentQueryService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
+  <Match>
+    <Class name="com.end.minisbackend.content.application.ContentInteractionService"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.creator.application.CreatorFollowService"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

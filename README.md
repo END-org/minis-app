@@ -6,12 +6,12 @@ MINIS is a mobile-first platform for vertical short films and useful mini-conten
 
 - Backend: Spring Boot modular monolith in `backend/minis-backend`.
 - Java target: 21. The current local toolchain may run newer JDKs while Maven compiles with release 21.
-- Current implemented slice: Firebase ID-token verification boundary, public Firebase email/password registration, email verification, email/password sign-in, Google sign-in, password reset, local MINIS user bootstrap, `/api/v1/auth/bootstrap`, `/api/v1/me`, creator identity, minimal event-admin preparation APIs, curated media import, MinIO-backed signed media read URLs, public categories/feed/content APIs, public creator content, ADMIN-only content removal, React event feed, shared API errors, correlation IDs, OpenAPI configuration, and security tests.
+- Current implemented slice: Firebase ID-token verification boundary, public Firebase email/password registration, email verification, email/password sign-in, Google sign-in, password reset, local MINIS user bootstrap, `/api/v1/auth/bootstrap`, `/api/v1/me`, creator identity, minimal event-admin preparation APIs, curated media import, MinIO-backed signed media read URLs, public categories/feed/content APIs, public creator content, ADMIN-only content removal, backend likes/saves/creator follows, private liked/saved content collections, authenticated viewer social state, React event feed, shared API errors, correlation IDs, OpenAPI configuration, and security tests.
 - Current clients: React event app in `web/event-app`; placeholders under `mobile/flutter` and `web/admin` are not present in this checkout.
 - Local Docker services: PostgreSQL and MinIO in `compose.local.yml`.
 - Demo deployment skeleton: PostgreSQL, MinIO, Spring Boot backend, and NGINX reverse proxy in `compose.demo.yml`.
-- Database schema: Flyway migrations V1 through V4; Hibernate validates the migrated schema.
-- Deferred in this baseline: live media upload, transcoding, thumbnails, social interactions, notifications, reports, analytics, chat, and complete user-management features.
+- Database schema: Flyway migrations V1 through V5; Hibernate validates the migrated schema.
+- Deferred in this baseline: live media upload, transcoding, thumbnails, comments, notifications, reports, analytics, chat, frontend social UI, and complete user-management features.
 
 ## Quick Local Backend Start
 
@@ -57,7 +57,7 @@ Curated event media uses MinIO through a read-only public path. Local signed med
 `http://localhost:9000`; demo signed media URLs default to `http://localhost:9002`. Import requires
 `ffprobe` on PATH and a private, untracked manifest. See `docs/media-and-upload.md`.
 
-Flyway upgrades an existing valid V1-V3 event database to V4 without deleting local data. Stop the
+Flyway upgrades an existing valid V1-V4 event database to V5 without deleting local data. Stop the
 normal local environment with `docker compose -f compose.local.yml down`. The following reset is
 destructive and must be used only for intentionally disposable data:
 

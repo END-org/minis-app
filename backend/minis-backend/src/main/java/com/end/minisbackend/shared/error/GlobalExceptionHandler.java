@@ -10,6 +10,7 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Converts application and MVC exceptions into the shared API error format. */
 @RestControllerAdvice
@@ -33,7 +34,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler({
     MethodArgumentNotValidException.class,
     BindException.class,
-    ConstraintViolationException.class
+    ConstraintViolationException.class,
+    MethodArgumentTypeMismatchException.class
   })
   ResponseEntity<ApiErrorResponse> handleValidation(HttpServletRequest request) {
     ApiErrorCode code = ApiErrorCode.VALIDATION_ERROR;

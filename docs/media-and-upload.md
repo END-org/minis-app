@@ -7,8 +7,8 @@ Phase 4 implements a read-only event media path:
 curated local/demo asset -> `ffprobe` inspection -> MinIO object -> PostgreSQL metadata -> public
 feed and creator content APIs.
 
-Live creator upload, presigned upload, transcoding, thumbnails, reports, analytics, social actions,
-and media-processing workers are intentionally deferred.
+Live creator upload, presigned upload, transcoding, thumbnails, reports, analytics, and
+media-processing workers are intentionally deferred.
 
 ## Supported Event Profile
 
@@ -140,14 +140,55 @@ as successful.
 - `GET /api/v1/feed?cursor=&limit=&category=`
 - `GET /api/v1/content/{contentId}`
 - `GET /api/v1/creators/{slug}/content?cursor=&limit=`
+- `PUT /api/v1/content/{contentId}/like`
+- `DELETE /api/v1/content/{contentId}/like`
+- `PUT /api/v1/content/{contentId}/save`
+- `DELETE /api/v1/content/{contentId}/save`
+- `PUT /api/v1/creators/{slug}/follow`
+- `DELETE /api/v1/creators/{slug}/follow`
+- `GET /api/v1/me/liked-content?cursor=&size=`
+- `GET /api/v1/me/saved-content?cursor=&size=`
 - `PUT /api/v1/admin/content/{contentId}/removal`
 
 The public projection includes content ID, title, description, category, creator attribution, media
-content type, size, optional duration, signed URL, and signed URL expiration. It does not expose raw
-object keys, import source keys, MinIO credentials, Firebase UIDs, or internal hostnames.
+content type, size, optional duration, signed URL, signed URL expiration, derived `likeCount`, and
+viewer-state booleans `liked`, `saved`, and `following`. It does not expose raw object keys, import
+source keys, MinIO credentials, Firebase UIDs, internal hostnames, or public save counts.
 
 Cursor order is `publishedAt DESC, id DESC`. The cursor encodes that pair and is opaque to clients.
 Malformed, oversized, or unsupported cursors return the standard validation error.
+
+## Social Relationships
+
+Live creator upload is not part of this implementation. Test media still enters the system through
+the accepted Phase 4 curated importer.
+
+Likes and saves are PostgreSQL relationships between the authenticated local account and
+`PUBLISHED` content. Follows are PostgreSQL relationships between an authenticated local account and
+a currently public active creator identified by canonical creator slug. `PUT` social operations
+ensure a relationship exists and `DELETE` social operations ensure it does not exist, so repeated
+and concurrent duplicate requests are idempotent.
+
+Guest feed/content/creator-content reads keep the same response shape as authenticated reads. For
+guests, `liked`, `saved`, and `following` are `false`; `likeCount` remains visible. If a request
+supplies an invalid bearer token, the existing authentication filter rejects it instead of treating
+the request as a guest read.
+
+Liked and saved collections are private `/me` routes. The client never supplies another user's ID.
+Collection order is `relationshipCreatedAt DESC, contentId DESC`, with an opaque cursor containing
+the validated ordering pair. Page size is bounded with the same content API default and maximum:
+default `10`, maximum `30`, minimum clamped to `1`.
+
+`content_likes` has the primary key `(user_id, content_id)` and an index on `content_id` to support
+derived like counts. `content_likes` and `content_saves` each have `(user_id, created_at DESC,
+content_id DESC)` indexes for private collection pagination. `creator_follows` has the primary key
+`(follower_user_id, creator_user_id)`, which supports follow existence and page-level viewer-follow
+lookup without adding a redundant index.
+
+Creator revocation, suspension, or disabled status prevents new follows because the target is no
+longer public active. Existing follow rows are not automatically destroyed; unfollow remains
+idempotently possible by historical slug where the creator profile still exists. Content published
+before revocation remains historically attributable until explicit content removal.
 
 ## Visibility And Removal
 
@@ -160,6 +201,11 @@ audit table is not extended in this phase.
 
 Creator revocation, suspension, disabled status, and profile edits do not delete content. Existing
 published content remains historically attributable until explicit content removal.
+
+Existing like/save rows may remain when content is later marked `REMOVED`. Removed content is
+excluded from feed, detail, creator content, and private liked/saved collection projections. New
+likes and saves against removed content fail safely, while unlike and unsave remain successful
+idempotent no-op operations where the viewer has no relationship.
 
 ## Range, Proxy, And CORS
 

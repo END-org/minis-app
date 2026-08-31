@@ -90,6 +90,27 @@ suspended, disabled, or changes profile details. Public content visibility chang
 content status policy: `PUBLISHED` content is visible and `REMOVED` content is hidden. New curated
 imports may only target a currently active creator.
 
+## Social Interaction Policy
+
+Likes, saves, creator follows, and private liked/saved collections require a verified Firebase
+bearer token mapped to an active provisioned local account. The backend principal supplies the user
+ID; request bodies, query parameters, URL parameters, Firebase custom claims, and React state are not
+trusted for relationship ownership.
+
+Active `VIEWER`, `CREATOR`, and `ADMIN` accounts may use normal user interaction routes. Suspended
+and disabled accounts are rejected through the existing account-status policy. Guests cannot write
+relationships or access `/api/v1/me/liked-content` and `/api/v1/me/saved-content`.
+
+Public feed, content detail, and creator-content reads remain guest-accessible. The response shape
+is stable for guests and authenticated users: guests see `likeCount` plus `liked=false`,
+`saved=false`, and `following=false`. Invalid supplied bearer tokens are rejected and are not
+silently downgraded to guest requests.
+
+Creator follows target the canonical public creator slug. New follows require the target account to
+remain a public active creator, self-follow is rejected, and creator revocation prevents future
+follows. Historical follow rows are preserved; unfollow remains idempotently safe where the creator
+profile slug still exists.
+
 ## Admin Audit
 
 Privileged event-admin operations append audit rows for creator grant/revoke, suspension/reactivate,

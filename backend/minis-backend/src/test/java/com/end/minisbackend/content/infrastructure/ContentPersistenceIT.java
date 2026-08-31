@@ -45,18 +45,23 @@ class ContentPersistenceIT {
     UUID oldest = UUID.fromString("11111111-1111-1111-1111-111111111111");
     UUID tieWinner = UUID.fromString("22222222-2222-2222-2222-222222222222");
     UUID newest = UUID.fromString("33333333-3333-3333-3333-333333333333");
-    insertContent(oldest, creatorId, "source-oldest", "PUBLISHED", "2026-07-17T12:00:00Z");
-    insertContent(tieWinner, creatorId, "source-tie", "PUBLISHED", "2026-07-17T12:00:00Z");
-    insertContent(newest, creatorId, "source-newest", "PUBLISHED", "2026-07-17T12:01:00Z");
+    String category = "CREATIVE_FILMMAKING";
+    insertContent(
+        oldest, creatorId, "source-oldest", "PUBLISHED", "2026-07-17T12:00:00Z", category);
+    insertContent(
+        tieWinner, creatorId, "source-tie", "PUBLISHED", "2026-07-17T12:00:00Z", category);
+    insertContent(
+        newest, creatorId, "source-newest", "PUBLISHED", "2026-07-17T12:01:00Z", category);
     insertContent(
         UUID.fromString("44444444-4444-4444-4444-444444444444"),
         creatorId,
         "source-removed",
         "REMOVED",
-        "2026-07-17T12:02:00Z");
+        "2026-07-17T12:02:00Z",
+        category);
 
-    ContentPage first = publicContentQueryService.feed(null, 2, null);
-    ContentPage second = publicContentQueryService.feed(first.nextCursor(), 2, null);
+    ContentPage first = publicContentQueryService.feed(null, 2, category);
+    ContentPage second = publicContentQueryService.feed(first.nextCursor(), 2, category);
 
     assertThat(first.items()).extracting(item -> item.id()).containsExactly(newest, tieWinner);
     assertThat(second.items()).extracting(item -> item.id()).containsExactly(oldest);

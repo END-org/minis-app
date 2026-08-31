@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, imports curated event media, stores media objects in MinIO, exposes public feed/content/category APIs with signed read URLs, supports ADMIN-only content removal, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
+The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, imports curated event media, stores media objects in MinIO, exposes public feed/content/category APIs with signed read URLs, supports ADMIN-only content removal, supports backend likes/saves/creator follows plus private liked/saved collections and authenticated viewer social state, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
 
-Product features such as live media upload, transcoding, thumbnails, comments, social interactions, notifications, reports, analytics, chat, and complete user management are not implemented in this baseline.
+Product features such as live media upload, transcoding, thumbnails, comments, reports, moderation queues, notifications, analytics, chat, frontend social UI, and complete user management are not implemented in this baseline.
 
 ## Prerequisites
 
@@ -203,6 +203,44 @@ PostgreSQL metadata, skips matching re-imports, and deletes only newly uploaded 
 persistence fails and no committed row owns that object. Reconciliation reads published rows in
 bounded batches. See `../../docs/media-and-upload.md` for the full policy.
 
+## Social Interaction APIs
+
+Live creator upload is not part of this implementation. Test media still enters the system through
+the accepted Phase 4 curated importer.
+
+Relationship writes require a verified Firebase bearer token mapped to an active provisioned local
+account. `VIEWER`, `CREATOR`, and `ADMIN` accounts may use normal user interactions when active.
+Guests may continue reading public content, but guest viewer-state booleans are `false`. Invalid
+bearer tokens are rejected by the existing authentication policy and are not treated as guests.
+
+New social routes:
+
+- `PUT /api/v1/content/{contentId}/like`
+- `DELETE /api/v1/content/{contentId}/like`
+- `PUT /api/v1/content/{contentId}/save`
+- `DELETE /api/v1/content/{contentId}/save`
+- `PUT /api/v1/creators/{slug}/follow`
+- `DELETE /api/v1/creators/{slug}/follow`
+- `GET /api/v1/me/liked-content?cursor=&size=`
+- `GET /api/v1/me/saved-content?cursor=&size=`
+
+`PUT` means ensure the relationship exists. `DELETE` means ensure it does not exist. Repeating a
+request, including concurrent duplicate requests, leaves one logical relationship for likes, saves,
+and follows. Relationship writes return `204 No Content` on success. New likes and saves target only
+`PUBLISHED` content; new follows target only a currently public active creator identified by slug.
+Self-follow is rejected with the shared conflict error. Removed or missing content cannot receive new
+likes or saves, but unlike and unsave remain idempotent.
+
+The feed, content detail, and creator-content projections now include `likeCount`, `liked`, `saved`,
+and `following`. Like counts are derived from `content_likes`; no public save count is exposed.
+Signed media URLs are still generated only while building responses and are never stored in social
+relationship tables.
+
+Liked and saved collections are private `/me` routes. The principal determines ownership; clients do
+not pass a user ID. Collections use bounded cursor pagination ordered by relationship timestamp
+descending with content ID as the stable tie breaker. Removed content is excluded from normal
+personal collection projections even if a historical relationship row remains.
+
 ## Common Local Errors
 
 - Invalid `GOOGLE_APPLICATION_CREDENTIALS`: set an absolute path to a real development Firebase Admin JSON outside the repository.
@@ -228,6 +266,7 @@ Flyway is the source of truth for the physical schema. Current migrations:
 - `src/main/resources/db/migration/V2__create_creator_profiles_and_event_admin_audit.sql`
 - `src/main/resources/db/migration/V3__create_content_items.sql`
 - `src/main/resources/db/migration/V4__add_content_read_and_reconciliation_indexes.sql`
+- `src/main/resources/db/migration/V5__create_social_interaction_relationships.sql`
 
 - `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
 - `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.
@@ -245,7 +284,8 @@ docker compose -f compose.local.yml down
 docker compose -f compose.demo.yml down
 ```
 
-Phase 1 expects a dedicated clean event database. Unknown Hibernate-created schemas are not adopted
+The current schema expects a dedicated clean event database or a database already valid through the
+previous Flyway migrations. Unknown Hibernate-created schemas are not adopted
 silently. The following local reset is destructive and must be used only for disposable data:
 
 ```bash

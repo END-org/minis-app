@@ -11,4 +11,8 @@ public record ContentResponse(
     String category,
     String categoryLabel,
     ContentMediaResponse media,
-    Instant publishedAt) {}
+    Instant publishedAt,
+    long likeCount,
+    boolean liked,
+    boolean saved,
+    boolean following) {}
