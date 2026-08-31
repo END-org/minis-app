@@ -4,67 +4,148 @@ import com.end.minisbackend.content.application.ContentImportException;
 import com.end.minisbackend.content.application.MediaInspection;
 import com.end.minisbackend.content.application.MediaProbe;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
 class FfprobeMediaProbe implements MediaProbe {
+  private static final long OUTPUT_COLLECTION_TIMEOUT_SECONDS = 1L;
+  private static final long PROCESS_POLL_MILLIS = 25L;
+
   private final ContentImporterProperties properties;
   private final ObjectMapper objectMapper;
+  private final FfprobeProcessLauncher processLauncher;
 
-  FfprobeMediaProbe(ContentImporterProperties properties, ObjectMapper objectMapper) {
+  FfprobeMediaProbe(
+      ContentImporterProperties properties,
+      ObjectMapper objectMapper,
+      FfprobeProcessLauncher processLauncher) {
     this.properties = properties;
     this.objectMapper = objectMapper;
+    this.processLauncher = processLauncher;
   }
 
   @Override
   public MediaInspection inspect(Path file) {
-    Path output = probeOutputFile();
+    properties.requireProbeConfigured();
     try {
-      Process process =
-          new ProcessBuilder(
-                  properties.ffprobePath(),
-                  "-v",
-                  "error",
-                  "-print_format",
-                  "json",
-                  "-show_format",
-                  "-show_streams",
-                  file.toString())
-              .redirectErrorStream(true)
-              .redirectOutput(output.toFile())
-              .start();
-      boolean completed =
-          process.waitFor(properties.probeTimeout().toMillis(), TimeUnit.MILLISECONDS);
-      if (!completed) {
-        process.destroyForcibly();
-        throw new ContentImportException("ffprobe timed out");
+      Process startedProcess = processLauncher.start(properties.ffprobePath(), file);
+      try (ExecutorService outputReaders = Executors.newVirtualThreadPerTaskExecutor()) {
+        Future<byte[]> stdout =
+            outputReaders.submit(
+                () ->
+                    readBounded(
+                        startedProcess.getInputStream(),
+                        properties.maxProbeOutputBytes(),
+                        "stdout"));
+        Future<byte[]> stderr =
+            outputReaders.submit(
+                () ->
+                    readBounded(
+                        startedProcess.getErrorStream(),
+                        properties.maxProbeOutputBytes(),
+                        "stderr"));
+        try {
+          waitForProcess(startedProcess, stdout, stderr);
+          String json = new String(output(stdout), StandardCharsets.UTF_8);
+          output(stderr);
+          if (startedProcess.exitValue() != 0) {
+            throw new ContentImportException("ffprobe rejected media");
+          }
+          return parseInspection(json);
+        } finally {
+          terminate(startedProcess);
+        }
       }
-      String json = readBoundedOutput(output);
-      if (process.exitValue() != 0) {
-        throw new ContentImportException("ffprobe rejected media");
-      }
-      return parseInspection(json);
     } catch (IOException exception) {
       throw new ContentImportException(
           "ffprobe is not available or could not inspect media", exception);
     } catch (InterruptedException exception) {
       Thread.currentThread().interrupt();
       throw new ContentImportException("ffprobe inspection was interrupted", exception);
-    } finally {
-      deleteQuietly(output);
+    }
+  }
+
+  private void waitForProcess(Process process, Future<byte[]> stdout, Future<byte[]> stderr)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + properties.probeTimeout().toNanos();
+    while (process.isAlive()) {
+      failIfReaderFailed(stdout);
+      failIfReaderFailed(stderr);
+      long remaining = deadline - System.nanoTime();
+      if (remaining <= 0L) {
+        throw new ContentImportException("ffprobe timed out");
+      }
+      process.waitFor(
+          Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(PROCESS_POLL_MILLIS)),
+          TimeUnit.NANOSECONDS);
+    }
+    failIfReaderFailed(stdout);
+    failIfReaderFailed(stderr);
+  }
+
+  private static void failIfReaderFailed(Future<byte[]> output) {
+    if (output.isDone()) {
+      output(output);
+    }
+  }
+
+  private static byte[] output(Future<byte[]> output) {
+    try {
+      return output.get(OUTPUT_COLLECTION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    } catch (ExecutionException exception) {
+      if (exception.getCause() instanceof ContentImportException importException) {
+        throw importException;
+      }
+      throw new ContentImportException("ffprobe output could not be read", exception.getCause());
+    } catch (TimeoutException exception) {
+      throw new ContentImportException("ffprobe output could not be collected", exception);
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new ContentImportException("ffprobe output collection was interrupted", exception);
+    }
+  }
+
+  private static byte[] readBounded(InputStream input, int maxBytes, String streamName) {
+    try (input) {
+      byte[] bytes = input.readNBytes(maxBytes + 1);
+      if (bytes.length > maxBytes) {
+        throw new ContentImportException("ffprobe " + streamName + " exceeded limit");
+      }
+      return bytes;
+    } catch (IOException exception) {
+      throw new ContentImportException("ffprobe " + streamName + " could not be read", exception);
+    }
+  }
+
+  private static void terminate(Process process) {
+    if (process != null && process.isAlive()) {
+      process.destroyForcibly();
+      try {
+        process.waitFor(1L, TimeUnit.SECONDS);
+      } catch (InterruptedException exception) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
   private MediaInspection parseInspection(String json) {
     try {
       JsonNode root = objectMapper.readTree(json);
+      if (root == null || !root.isObject()) {
+        throw new ContentImportException("ffprobe output could not be parsed");
+      }
       JsonNode format = root.path("format");
       JsonNode video = firstStream(root, "video");
       if (video == null) {
@@ -120,29 +201,5 @@ class FfprobeMediaProbe implements MediaProbe {
       return 0d;
     }
     return numerator / denominator;
-  }
-
-  private String readBoundedOutput(Path output) throws IOException {
-    byte[] bytes = Files.readAllBytes(output);
-    if (bytes.length > properties.maxProbeOutputBytes()) {
-      throw new ContentImportException("ffprobe output exceeded limit");
-    }
-    return new String(bytes, StandardCharsets.UTF_8);
-  }
-
-  private static Path probeOutputFile() {
-    try {
-      return Files.createTempFile("minis-ffprobe-", ".json");
-    } catch (IOException exception) {
-      throw new ContentImportException("ffprobe output file could not be created", exception);
-    }
-  }
-
-  private static void deleteQuietly(Path output) {
-    try {
-      Files.deleteIfExists(output);
-    } catch (IOException ignored) {
-      // Temporary probe output is not part of product state.
-    }
   }
 }

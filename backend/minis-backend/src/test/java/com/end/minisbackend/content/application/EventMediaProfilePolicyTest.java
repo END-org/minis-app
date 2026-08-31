@@ -66,4 +66,27 @@ class EventMediaProfilePolicyTest {
                     10_000_000L))
         .isInstanceOf(ApiException.class);
   }
+
+  @Test
+  void rejectsMalformedFrameRateAndUnexpectedStreams() {
+    assertThatThrownBy(
+            () ->
+                policy.validate(
+                    new MediaInspection("mov,mp4", "h264", "aac", 60_000, 1080, 1920, 0d, 2),
+                    10_000_000L))
+        .isInstanceOf(ApiException.class);
+    assertThatThrownBy(
+            () ->
+                policy.validate(
+                    new MediaInspection(
+                        "mov,mp4", "h264", "aac", 60_000, 1080, 1920, Double.NaN, 2),
+                    10_000_000L))
+        .isInstanceOf(ApiException.class);
+    assertThatThrownBy(
+            () ->
+                policy.validate(
+                    new MediaInspection("mov,mp4", "h264", "aac", 60_000, 1080, 1920, 30d, 3),
+                    10_000_000L))
+        .isInstanceOf(ApiException.class);
+  }
 }

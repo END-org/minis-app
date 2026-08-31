@@ -34,7 +34,7 @@ class ContentAdministrationServiceTest {
     assertThat(stored.status()).isEqualTo(ContentStatus.REMOVED);
     assertThat(stored.removedAt()).isEqualTo(Instant.parse("2026-07-17T12:00:00Z"));
     assertThat(stored.removalReason()).isEqualTo("event cleanup");
-    assertThat(store.findPublishedItems()).isEmpty();
+    assertThat(store.findPublishedItemsAfter(null, 100)).isEmpty();
   }
 
   @Test

@@ -42,6 +42,22 @@ services:
       retries: 5
       start_period: 10s
 
+  minio-init:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    environment:
+      MINIO_ROOT_USER: ${DEMO_MINIO_ROOT_USER:?Set DEMO_MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${DEMO_MINIO_ROOT_PASSWORD:?Set DEMO_MINIO_ROOT_PASSWORD}
+      MINIS_CONTENT_STORAGE_BUCKET: ${MINIS_CONTENT_STORAGE_BUCKET:-minis-event-media}
+    command:
+      - >-
+        mc alias set minis http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" >/dev/null &&
+        mc mb --ignore-existing "minis/$$MINIS_CONTENT_STORAGE_BUCKET"
+    depends_on:
+      minio:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend/minis-backend
@@ -69,7 +85,13 @@ services:
      MINIS_CONTENT_STORAGE_ACCESS_KEY: ${MINIS_CONTENT_STORAGE_ACCESS_KEY:-${DEMO_MINIO_ROOT_USER:?Set DEMO_MINIO_ROOT_USER}}
      MINIS_CONTENT_STORAGE_SECRET_KEY: ${MINIS_CONTENT_STORAGE_SECRET_KEY:-${DEMO_MINIO_ROOT_PASSWORD:?Set DEMO_MINIO_ROOT_PASSWORD}}
      MINIS_CONTENT_STORAGE_BUCKET: ${MINIS_CONTENT_STORAGE_BUCKET:-minis-event-media}
+     MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME: ${MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME:-PT10M}
+     MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT: ${MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT:-PT5S}
+     MINIS_CONTENT_STORAGE_READ_TIMEOUT: ${MINIS_CONTENT_STORAGE_READ_TIMEOUT:-PT30S}
+     MINIS_CONTENT_STORAGE_WRITE_TIMEOUT: ${MINIS_CONTENT_STORAGE_WRITE_TIMEOUT:-PT2M}
      MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET: ${MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET:-false}
+     SPRINGDOC_API_DOCS_ENABLED: ${SPRINGDOC_API_DOCS_ENABLED:-false}
+     SPRINGDOC_SWAGGER_UI_ENABLED: ${SPRINGDOC_SWAGGER_UI_ENABLED:-false}
 
     volumes:
       - type: bind
@@ -81,6 +103,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [

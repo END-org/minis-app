@@ -10,7 +10,7 @@ MINIS is a mobile-first platform for vertical short films and useful mini-conten
 - Current clients: React event app in `web/event-app`; placeholders under `mobile/flutter` and `web/admin` are not present in this checkout.
 - Local Docker services: PostgreSQL and MinIO in `compose.local.yml`.
 - Demo deployment skeleton: PostgreSQL, MinIO, Spring Boot backend, and NGINX reverse proxy in `compose.demo.yml`.
-- Database schema: Flyway migrations `V1__create_identity_user_accounts.sql`, `V2__create_creator_profiles_and_event_admin_audit.sql`, and `V3__create_content_items.sql`; Hibernate validates the migrated schema.
+- Database schema: Flyway migrations V1 through V4; Hibernate validates the migrated schema.
 - Deferred in this baseline: live media upload, transcoding, thumbnails, social interactions, notifications, reports, analytics, chat, and complete user-management features.
 
 ## Quick Local Backend Start
@@ -20,6 +20,9 @@ Copy local environment placeholders, then start PostgreSQL and MinIO:
 ```bash
 cp .env.example .env
 docker compose -f compose.local.yml up -d
+set -a
+. ./.env
+set +a
 cd backend/minis-backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
@@ -29,11 +32,16 @@ Windows PowerShell:
 ```powershell
 Copy-Item .env.example .env
 docker compose -f compose.local.yml up -d
-Set-Location backend/minis-backend
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+.\scripts\local\start-backend.ps1
 ```
 
 Local startup requires a Firebase development project and `GOOGLE_APPLICATION_CREDENTIALS` pointing to a Firebase Admin JSON outside the repository.
+
+Fill the blank PostgreSQL, MinIO, Firebase, and credential-path values before startup. Keep the
+profile-specific storage endpoint overrides commented unless deliberately replacing the YAML
+defaults: host-local Spring uses `localhost`, while the demo backend container uses the `minio`
+service hostname. Compose creates the configured MinIO bucket idempotently; the backend itself keeps
+automatic bucket creation disabled.
 
 Start the React event app after the backend is running:
 
@@ -43,13 +51,15 @@ npm ci
 npm run dev
 ```
 
-The React app uses `http://localhost:5173` with `strictPort`. Leave `VITE_API_BASE_URL` blank for local development so `/api` requests go through the Vite proxy to `http://localhost:8080`. The backend includes `spring-dotenv`, so root `.env` values are visible to Spring Boot. If you deliberately use a different React origin, update `MINIS_LOCAL_ALLOWED_ORIGINS` for the backend local profile.
+The React app uses `http://localhost:5173` with `strictPort`. Leave `VITE_API_BASE_URL` blank for local development so `/api` requests go through the Vite proxy to `http://localhost:8080`. The PowerShell launcher loads the ignored root `.env` into the backend process without printing values; Docker Compose reads the same file directly. If you deliberately use a different React origin, update `MINIS_LOCAL_ALLOWED_ORIGINS` for the backend local profile.
 
 Curated event media uses MinIO through a read-only public path. Local signed media URLs default to
 `http://localhost:9000`; demo signed media URLs default to `http://localhost:9002`. Import requires
 `ffprobe` on PATH and a private, untracked manifest. See `docs/media-and-upload.md`.
 
-Fresh Phase 1 local databases use `minis_event_local`. If an older disposable local volume was created before Flyway, recreate it explicitly:
+Flyway upgrades an existing valid V1-V3 event database to V4 without deleting local data. Stop the
+normal local environment with `docker compose -f compose.local.yml down`. The following reset is
+destructive and must be used only for intentionally disposable data:
 
 ```bash
 docker compose -f compose.local.yml down -v

@@ -39,9 +39,6 @@ public class SecurityConfig {
                   .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
                   .permitAll();
               requests
-                  .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
-                  .permitAll();
-              requests
                   .requestMatchers(HttpMethod.GET, "/api/v1/creators", "/api/v1/creators/**")
                   .permitAll();
               requests
@@ -50,10 +47,22 @@ public class SecurityConfig {
                   .permitAll();
               if (developmentProfile) {
                 requests
-                    .requestMatchers("/auth-test/**", "/api/v1/dev/firebase-web-config")
+                    .requestMatchers(
+                        "/auth-test/**",
+                        "/api/v1/dev/firebase-web-config",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**")
                     .permitAll();
               } else {
-                requests.requestMatchers("/auth-test/**", "/api/v1/dev/**").denyAll();
+                requests
+                    .requestMatchers(
+                        "/auth-test/**",
+                        "/api/v1/dev/**",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**")
+                    .denyAll();
               }
               requests.requestMatchers("/api/v1/admin/**").hasRole("ADMIN");
               requests.anyRequest().authenticated();

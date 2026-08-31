@@ -26,32 +26,46 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
 import org.springframework.stereotype.Component;
 
 @Component
 class MinioContentStorage implements ContentStorage {
   private final ContentStorageProperties properties;
   private final Clock clock;
+  private final MinioClient objectClient;
+  private final MinioClient signingClient;
 
   MinioContentStorage(ContentStorageProperties properties, Clock clock) {
     this.properties = properties;
     this.clock = clock;
+    properties.requireConfigured();
+    OkHttpClient httpClient = httpClient(properties);
+    this.objectClient = client(properties.internalEndpoint(), properties, httpClient);
+    this.signingClient = client(properties.publicEndpoint(), properties, httpClient);
+  }
+
+  @Override
+  public void verifyAvailable() {
+    if (!bucketExists()) {
+      throw new ContentStorageException("Content storage bucket does not exist");
+    }
   }
 
   @Override
   public void ensureBucket() {
-    properties.requireConfigured();
     try {
-      boolean exists =
-          objectClient()
-              .bucketExists(BucketExistsArgs.builder().bucket(properties.bucket()).build());
+      boolean exists = bucketExists();
       if (!exists && properties.autoCreateBucket()) {
-        objectClient().makeBucket(MakeBucketArgs.builder().bucket(properties.bucket()).build());
+        objectClient.makeBucket(MakeBucketArgs.builder().bucket(properties.bucket()).build());
         return;
       }
       if (!exists) {
         throw new ContentStorageException("Content storage bucket does not exist");
       }
+    } catch (ContentStorageException exception) {
+      throw exception;
     } catch (ErrorResponseException
         | InsufficientDataException
         | InternalException
@@ -68,14 +82,12 @@ class MinioContentStorage implements ContentStorage {
   @Override
   public void uploadImportedObject(
       String objectKey, Path sourceFile, String contentType, long sizeBytes) {
-    properties.requireConfigured();
     try (InputStream inputStream = Files.newInputStream(sourceFile)) {
-      objectClient()
-          .putObject(
-              PutObjectArgs.builder().bucket(properties.bucket()).object(objectKey).stream(
-                      inputStream, sizeBytes, -1)
-                  .contentType(contentType)
-                  .build());
+      objectClient.putObject(
+          PutObjectArgs.builder().bucket(properties.bucket()).object(objectKey).stream(
+                  inputStream, sizeBytes, -1)
+              .contentType(contentType)
+              .build());
     } catch (ErrorResponseException
         | InsufficientDataException
         | InternalException
@@ -91,11 +103,9 @@ class MinioContentStorage implements ContentStorage {
 
   @Override
   public boolean objectExists(String objectKey) {
-    properties.requireConfigured();
     try {
-      objectClient()
-          .statObject(
-              StatObjectArgs.builder().bucket(properties.bucket()).object(objectKey).build());
+      objectClient.statObject(
+          StatObjectArgs.builder().bucket(properties.bucket()).object(objectKey).build());
       return true;
     } catch (ErrorResponseException exception) {
       if ("NoSuchKey".equals(exception.errorResponse().code())
@@ -117,11 +127,9 @@ class MinioContentStorage implements ContentStorage {
 
   @Override
   public void deleteNewlyUploadedObject(String objectKey) {
-    properties.requireConfigured();
     try {
-      objectClient()
-          .removeObject(
-              RemoveObjectArgs.builder().bucket(properties.bucket()).object(objectKey).build());
+      objectClient.removeObject(
+          RemoveObjectArgs.builder().bucket(properties.bucket()).object(objectKey).build());
     } catch (ErrorResponseException
         | InsufficientDataException
         | InternalException
@@ -137,17 +145,18 @@ class MinioContentStorage implements ContentStorage {
 
   @Override
   public SignedReadUrl signedReadUrl(String objectKey) {
-    properties.requireConfigured();
+    if (!objectExists(objectKey)) {
+      throw new ContentStorageException("Content object is missing");
+    }
     try {
       String url =
-          signingClient()
-              .getPresignedObjectUrl(
-                  GetPresignedObjectUrlArgs.builder()
-                      .method(Method.GET)
-                      .bucket(properties.bucket())
-                      .object(objectKey)
-                      .expiry(properties.signedReadLifetimeSeconds())
-                      .build());
+          signingClient.getPresignedObjectUrl(
+              GetPresignedObjectUrlArgs.builder()
+                  .method(Method.GET)
+                  .bucket(properties.bucket())
+                  .object(objectKey)
+                  .expiry(properties.signedReadLifetimeSeconds())
+                  .build());
       return new SignedReadUrl(
           URI.create(url), Instant.now(clock).plusSeconds(properties.signedReadLifetimeSeconds()));
     } catch (ErrorResponseException
@@ -163,18 +172,37 @@ class MinioContentStorage implements ContentStorage {
     }
   }
 
-  private MinioClient objectClient() {
-    return client(properties.internalEndpoint(), properties);
+  private boolean bucketExists() {
+    try {
+      return objectClient.bucketExists(
+          BucketExistsArgs.builder().bucket(properties.bucket()).build());
+    } catch (ErrorResponseException
+        | InsufficientDataException
+        | InternalException
+        | InvalidKeyException
+        | InvalidResponseException
+        | IOException
+        | NoSuchAlgorithmException
+        | ServerException
+        | XmlParserException exception) {
+      throw new ContentStorageException("Content storage bucket check failed", exception);
+    }
   }
 
-  private MinioClient signingClient() {
-    return client(properties.publicEndpoint(), properties);
-  }
-
-  private static MinioClient client(String endpoint, ContentStorageProperties properties) {
+  private static MinioClient client(
+      String endpoint, ContentStorageProperties properties, OkHttpClient httpClient) {
     return MinioClient.builder()
         .endpoint(endpoint)
         .credentials(properties.accessKey(), properties.secretKey())
+        .httpClient(httpClient)
+        .build();
+  }
+
+  private static OkHttpClient httpClient(ContentStorageProperties properties) {
+    return new OkHttpClient.Builder()
+        .connectTimeout(properties.connectTimeout().toMillis(), TimeUnit.MILLISECONDS)
+        .readTimeout(properties.readTimeout().toMillis(), TimeUnit.MILLISECONDS)
+        .writeTimeout(properties.writeTimeout().toMillis(), TimeUnit.MILLISECONDS)
         .build();
   }
 }

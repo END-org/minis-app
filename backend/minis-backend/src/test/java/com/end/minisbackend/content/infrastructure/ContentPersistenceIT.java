@@ -4,13 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import com.end.minisbackend.content.application.ContentCommandStore;
 import com.end.minisbackend.content.application.ContentPage;
 import com.end.minisbackend.content.application.ContentStorage;
 import com.end.minisbackend.content.application.PublicContentQueryService;
 import com.end.minisbackend.content.application.SignedReadUrl;
+import com.end.minisbackend.content.domain.ContentItem;
+import com.end.minisbackend.content.domain.ContentStatus;
 import java.net.URI;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class ContentPersistenceIT {
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private PublicContentQueryService publicContentQueryService;
+  @Autowired private ContentCommandStore contentCommandStore;
 
   @MockitoBean private ContentStorage contentStorage;
 
@@ -88,6 +94,49 @@ class ContentPersistenceIT {
     assertThat(creatorContent.items()).hasSize(2);
     assertThat(technology.items()).hasSize(1);
     assertThat(technology.items().get(0).category()).isEqualTo("TECHNOLOGY");
+  }
+
+  @Test
+  void reconciliationQueryUsesBoundedStableKeysetBatchesAndExcludesRemovedRows() {
+    UUID creatorId = UUID.randomUUID();
+    insertCreator(creatorId, "reconciliation-" + creatorId);
+    UUID firstPublished = UUID.randomUUID();
+    UUID secondPublished = UUID.randomUUID();
+    UUID removed = UUID.randomUUID();
+    insertContent(
+        firstPublished,
+        creatorId,
+        "reconciliation-first-" + firstPublished,
+        "PUBLISHED",
+        "2026-07-17T12:00:00Z");
+    insertContent(
+        secondPublished,
+        creatorId,
+        "reconciliation-second-" + secondPublished,
+        "PUBLISHED",
+        "2026-07-17T12:00:00Z");
+    insertContent(
+        removed, creatorId, "reconciliation-removed-" + removed, "REMOVED", "2026-07-17T12:00:00Z");
+
+    List<UUID> seen = new ArrayList<>();
+    UUID afterContentId = null;
+    while (true) {
+      List<ContentItem> batch = contentCommandStore.findPublishedItemsAfter(afterContentId, 2);
+      assertThat(batch).hasSizeLessThanOrEqualTo(2);
+      if (batch.isEmpty()) {
+        break;
+      }
+      assertThat(batch).allMatch(item -> item.status() == ContentStatus.PUBLISHED);
+      assertThat(batch).extracting(item -> item.id().toString()).isSorted();
+      if (afterContentId != null) {
+        String cursor = afterContentId.toString();
+        assertThat(batch).allMatch(item -> item.id().toString().compareTo(cursor) > 0);
+      }
+      seen.addAll(batch.stream().map(ContentItem::id).toList());
+      afterContentId = batch.get(batch.size() - 1).id();
+    }
+
+    assertThat(seen).contains(firstPublished, secondPublished).doesNotContain(removed);
   }
 
   private void insertCreator(UUID userId, String slug) {

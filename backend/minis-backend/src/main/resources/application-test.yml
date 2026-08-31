@@ -19,3 +19,11 @@ logging:
   level:
     com.end.minisbackend: INFO
     org.testcontainers: INFO
+
+minis:
+  content:
+    storage:
+      internal-endpoint: http://127.0.0.1:9000
+      public-endpoint: http://127.0.0.1:9000
+      access-key: test-access-key
+      secret-key: test-secret-key

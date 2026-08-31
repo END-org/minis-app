@@ -34,11 +34,13 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "demo", "test")) {
         assertThat(
                 queryForInt(database, "select count(*) from flyway_schema_history where success"))
-            .isEqualTo(3);
+            .isEqualTo(4);
         assertThat(tableExists(database, "user_accounts")).isTrue();
         assertThat(tableExists(database, "creator_profiles")).isTrue();
         assertThat(tableExists(database, "event_admin_audit_entries")).isTrue();
         assertThat(tableExists(database, "content_items")).isTrue();
+        assertThat(indexExists(database, "idx_content_items_unfiltered_public_feed")).isTrue();
+        assertThat(indexExists(database, "idx_content_items_published_reconciliation")).isTrue();
       }
 
       List<String> schemaAfterFirstStartup = schemaFingerprint(database);
@@ -163,6 +165,20 @@ class DatabaseMigrationIT {
                   and table_name = ?
                 """)) {
       statement.setString(1, tableName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getInt(1) == 1;
+      }
+    }
+  }
+
+  private static boolean indexExists(PostgreSQLContainer<?> database, String indexName)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                "select count(*) from pg_indexes where schemaname = 'public' and indexname = ?")) {
+      statement.setString(1, indexName);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1) == 1;

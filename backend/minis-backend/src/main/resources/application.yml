@@ -47,6 +47,11 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,contentStorage
 
   info:
     env:
@@ -102,6 +107,9 @@ minis:
       secret-key: ${MINIS_CONTENT_STORAGE_SECRET_KEY:}
       bucket: ${MINIS_CONTENT_STORAGE_BUCKET:minis-event-media}
       signed-read-lifetime: ${MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME:PT10M}
+      connect-timeout: ${MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT:PT5S}
+      read-timeout: ${MINIS_CONTENT_STORAGE_READ_TIMEOUT:PT30S}
+      write-timeout: ${MINIS_CONTENT_STORAGE_WRITE_TIMEOUT:PT2M}
       auto-create-bucket: ${MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET:false}
     importer:
       enabled: ${MINIS_CONTENT_IMPORTER_ENABLED:false}

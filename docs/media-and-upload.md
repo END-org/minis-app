@@ -36,7 +36,8 @@ Target matrix for manual rehearsal:
 
 ## Inspection-Only Import
 
-Install `ffprobe` from FFmpeg and verify it is on PATH:
+Install `ffprobe` from FFmpeg and verify it is on PATH for host-based importer runs. The backend
+container installs the same dependency in its runtime image:
 
 ```bash
 ffprobe -version
@@ -56,7 +57,7 @@ assets directory:
   "entries": [
     {
       "assetPath": "creator-a/intro.mp4",
-      "sourceKey": "event-2026-creator-a-intro-v1",
+      "importSourceKey": "event-2026-creator-a-intro-v1",
       "creatorSlug": "creator-a",
       "title": "Opening Mini",
       "description": "A short fictional event clip for importer rehearsal.",
@@ -67,8 +68,8 @@ assets directory:
 ```
 
 `creatorUserId` may be used instead of `creatorSlug` when the operator has a backend UUID. Absolute
-paths, parent traversal, duplicate source keys, invalid categories, inactive creators, and revoked
-creators are rejected before upload.
+paths, parent traversal, symlink escapes, duplicate source keys, invalid categories, inactive
+creators, and revoked creators are rejected before upload.
 
 ## Storage And Signed URLs
 
@@ -86,7 +87,13 @@ Demo defaults:
 
 The signing endpoint must be exactly the scheme, host, port, and path the browser uses. Do not
 rewrite a completed signed URL. Signed URLs are generated only while building API responses, have a
-default 10 minute lifetime, and are never persisted.
+default 10 minute lifetime, and are never persisted. Object existence is checked before a signed URL
+is returned, so missing media produces an explicit backend failure and safe error log instead of a
+plausible URL for an absent object.
+
+Storage connect, read, and write timeouts default to 5 seconds, 30 seconds, and 2 minutes. Storage is
+included in the readiness health group; health responses do not expose endpoint or credential
+details.
 
 The React client treats signed URLs as replaceable media references, not content identity. If a
 media error occurs near or after expiry, it refreshes the content projection once and retries once.
@@ -110,9 +117,10 @@ Windows PowerShell:
 Set `MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=true` only for disposable local/demo runs when bucket
 creation is intended. Production-like environments should provision the bucket separately.
 
-Rerunning the same manifest is idempotent when the metadata and object match. If upload succeeds but
-database persistence fails, the importer attempts to delete only the newly uploaded object and
-reports the failed entry.
+Rerunning the same manifest is idempotent when normalized metadata and the object match. If upload
+succeeds but database persistence fails, the importer attempts to delete only the newly uploaded
+object and reports the failed entry. Compensation first checks whether a concurrent committed row
+owns the deterministic object key; cleanup failure is logged as an orphan candidate.
 
 ## Reconciliation
 
@@ -122,8 +130,9 @@ Run reconciliation as a one-off command mode:
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.reconciliation.enabled=true --minis.content.reconciliation.run-id=<safe-run-id>"
 ```
 
-It checks published metadata for missing objects and logs `public_media_inconsistency_detected`.
-It does not invent rows, delete content, or mark a broken item as successful.
+It checks published metadata in bounded batches for missing objects and logs
+`public_media_inconsistency_detected`. It does not invent rows, delete content, or mark a broken item
+as successful.
 
 ## Public APIs
 

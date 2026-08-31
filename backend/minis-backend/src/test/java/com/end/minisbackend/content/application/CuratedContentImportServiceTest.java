@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.ObjectMapper;
@@ -118,8 +119,117 @@ class CuratedContentImportServiceTest {
     assertThat(storage.deleteCount()).isEqualTo(1);
   }
 
+  @Test
+  void normalizedSourceKeyMakesWhitespaceVariantIdempotent() throws Exception {
+    UUID creatorUserId = UUID.randomUUID();
+    Path manifest = manifest(" normalized-source ", creatorUserId, "videos/normalized.mp4");
+    asset("videos/normalized.mp4");
+    InMemoryContentCommandStore store = new InMemoryContentCommandStore();
+    RecordingContentStorage storage = new RecordingContentStorage();
+    CuratedContentImportService service = service(store, storage, creatorUserId);
+
+    ContentImportSummary first = service.importManifest(manifest, tempDir, "run-normalized-1");
+    ContentImportSummary second = service.importManifest(manifest, tempDir, "run-normalized-2");
+
+    assertThat(first.importedCount()).isEqualTo(1);
+    assertThat(second.skippedCount()).isEqualTo(1);
+    assertThat(store.all()).hasSize(1);
+    assertThat(store.all().get(0).importSourceKey()).isEqualTo("normalized-source");
+    assertThat(storage.uploadCount()).isEqualTo(1);
+    assertThat(storage.deleteCount()).isZero();
+  }
+
+  @Test
+  void emptyAssetIsRejectedBeforeMediaProbeOrStorageUpload() throws Exception {
+    UUID creatorUserId = UUID.randomUUID();
+    Path manifest = manifest("empty-source", creatorUserId, "videos/empty.mp4");
+    Path emptyAsset = tempDir.resolve("videos/empty.mp4");
+    Files.createDirectories(emptyAsset.getParent());
+    Files.createFile(emptyAsset);
+    AtomicInteger probeCount = new AtomicInteger();
+    RecordingContentStorage storage = new RecordingContentStorage();
+
+    ContentImportSummary summary =
+        service(
+                new InMemoryContentCommandStore(),
+                storage,
+                creatorUserId,
+                ignored -> {
+                  probeCount.incrementAndGet();
+                  return validInspection();
+                })
+            .importManifest(manifest, tempDir, "run-empty");
+
+    assertThat(summary.failedCount()).isEqualTo(1);
+    assertThat(probeCount).hasValue(0);
+    assertThat(storage.uploadCount()).isZero();
+  }
+
+  @Test
+  void concurrentDatabaseWinnerPreventsCompensationFromDeletingOwnedObject() throws Exception {
+    UUID creatorUserId = UUID.randomUUID();
+    Path manifest = manifest("concurrent-source", creatorUserId, "videos/concurrent.mp4");
+    asset("videos/concurrent.mp4");
+    InMemoryContentCommandStore store = new InMemoryContentCommandStore();
+    store.failNextSaveAfterConcurrentCommit();
+    RecordingContentStorage storage = new RecordingContentStorage();
+
+    ContentImportSummary summary =
+        service(store, storage, creatorUserId).importManifest(manifest, tempDir, "run-concurrent");
+
+    assertThat(summary.failedCount()).isEqualTo(1);
+    assertThat(store.all()).hasSize(1);
+    assertThat(storage.deleteCount()).isZero();
+    assertThat(storage.hasObject(store.all().get(0).mediaObjectKey())).isTrue();
+  }
+
+  @Test
+  void failedCompensationLeavesFailedResultAndDetectableOrphanCandidate() throws Exception {
+    UUID creatorUserId = UUID.randomUUID();
+    Path manifest = manifest("cleanup-source", creatorUserId, "videos/cleanup.mp4");
+    asset("videos/cleanup.mp4");
+    InMemoryContentCommandStore store = new InMemoryContentCommandStore();
+    store.failNextSave();
+    RecordingContentStorage storage = new RecordingContentStorage();
+    storage.failDelete();
+
+    ContentImportSummary summary =
+        service(store, storage, creatorUserId).importManifest(manifest, tempDir, "run-cleanup");
+
+    assertThat(summary.failedCount()).isEqualTo(1);
+    assertThat(store.all()).isEmpty();
+    assertThat(storage.deleteCount()).isEqualTo(1);
+    assertThat(storage.objectCount()).isEqualTo(1);
+  }
+
+  @Test
+  void uncertainUploadFailureNeverCreatesMetadataOrReportsSuccess() throws Exception {
+    UUID creatorUserId = UUID.randomUUID();
+    Path manifest = manifest("upload-failure", creatorUserId, "videos/upload-failure.mp4");
+    asset("videos/upload-failure.mp4");
+    InMemoryContentCommandStore store = new InMemoryContentCommandStore();
+    RecordingContentStorage storage = new RecordingContentStorage();
+    storage.failUpload();
+
+    ContentImportSummary summary =
+        service(store, storage, creatorUserId).importManifest(manifest, tempDir, "run-upload-fail");
+
+    assertThat(summary.failedCount()).isEqualTo(1);
+    assertThat(summary.importedCount()).isZero();
+    assertThat(store.all()).isEmpty();
+    assertThat(storage.deleteCount()).isEqualTo(1);
+  }
+
   private CuratedContentImportService service(
       InMemoryContentCommandStore store, RecordingContentStorage storage, UUID creatorUserId) {
+    return service(store, storage, creatorUserId, ignored -> validInspection());
+  }
+
+  private CuratedContentImportService service(
+      InMemoryContentCommandStore store,
+      RecordingContentStorage storage,
+      UUID creatorUserId,
+      MediaProbe mediaProbe) {
     CreatorProfileQueryService creatorService =
         new CreatorProfileQueryService(
             new InMemoryCreatorProfileStore(creatorUserId, "event-creator"),
@@ -128,13 +238,16 @@ class CuratedContentImportServiceTest {
         store,
         storage,
         creatorService,
-        ignored ->
-            new MediaInspection(
-                "mov,mp4,m4a,3gp,3g2,mj2", "h264", "aac", 60_000, 1080, 1920, 30d, 2),
+        mediaProbe,
         new EventMediaProfilePolicy(),
         new ObjectMapper(),
         new TestTransactionManager(),
         CLOCK);
+  }
+
+  private static MediaInspection validInspection() {
+    return new MediaInspection(
+        "mov,mp4,m4a,3gp,3g2,mj2", "h264", "aac", 60_000, 1080, 1920, 30d, 2);
   }
 
   private Path manifest(String sourceKey, UUID creatorUserId, String assetPath) throws Exception {

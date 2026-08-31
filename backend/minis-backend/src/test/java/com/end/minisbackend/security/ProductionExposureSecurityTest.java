@@ -24,7 +24,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(
+    properties = {"springdoc.api-docs.enabled=true", "springdoc.swagger-ui.enabled=true"})
 @AutoConfigureMockMvc
 @ActiveProfiles({"prod", "test"})
 class ProductionExposureSecurityTest {
@@ -55,6 +56,20 @@ class ProductionExposureSecurityTest {
   void productionProfileDeniesDeveloperFirebaseConfig() throws Exception {
     mockMvc
         .perform(get("/api/v1/dev/firebase-web-config").header(HttpHeaders.AUTHORIZATION, bearer()))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void productionProfileDeniesSwaggerUiEvenWhenEnabled() throws Exception {
+    mockMvc
+        .perform(get("/swagger-ui/index.html").header(HttpHeaders.AUTHORIZATION, bearer()))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void productionProfileDeniesApiDocumentationEvenWhenEnabled() throws Exception {
+    mockMvc
+        .perform(get("/v3/api-docs").header(HttpHeaders.AUTHORIZATION, bearer()))
         .andExpect(status().isForbidden());
   }
 

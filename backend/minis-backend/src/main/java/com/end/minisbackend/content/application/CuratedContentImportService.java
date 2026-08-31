@@ -17,10 +17,9 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -61,12 +60,11 @@ public class CuratedContentImportService {
   }
 
   public ContentImportSummary importManifest(Path manifestPath, Path assetsRoot, String runId) {
-    String safeRunId = StringUtils.hasText(runId) ? runId.trim() : UUID.randomUUID().toString();
+    String safeRunId = ContentOperationRunId.normalize(runId);
     LOGGER.info("event=curated_import_started runId={}", safeRunId);
     ContentImportManifest manifest = readManifest(manifestPath);
-    Path normalizedAssetsRoot = assetsRoot.toAbsolutePath().normalize();
-    List<ContentImportEntryResult> results =
-        importEntries(manifest, normalizedAssetsRoot, safeRunId);
+    Path verifiedAssetsRoot = verifiedAssetsRoot(assetsRoot);
+    List<ContentImportEntryResult> results = importEntries(manifest, verifiedAssetsRoot, safeRunId);
     ContentImportSummary summary = summarize(safeRunId, results);
     LOGGER.info(
         "event=curated_import_completed runId={} imported={} skipped={} reconciled={} failed={}",
@@ -87,7 +85,10 @@ public class CuratedContentImportService {
     Set<String> assetPaths = new HashSet<>();
     for (ContentImportManifestEntry entry : manifestEntries) {
       try {
-        validateDuplicate(entry.importSourceKey(), sourceKeys, "duplicate import source key");
+        validateDuplicate(
+            normalizedSourceKey(entry.importSourceKey()),
+            sourceKeys,
+            "duplicate import source key");
         Path asset = resolveAsset(assetsRoot, entry.assetPath());
         validateDuplicate(asset.toString(), assetPaths, "duplicate manifest asset path");
         resolvedAssets.add(asset);
@@ -107,7 +108,7 @@ public class CuratedContentImportService {
       } catch (ApiException
           | ContentImportException
           | ContentStorageException
-          | DataIntegrityViolationException
+          | DataAccessException
           | IllegalArgumentException exception) {
         results.add(failed(entry.importSourceKey(), "import failed"));
         logAssetFailed(runId, entry.importSourceKey(), exception);
@@ -118,25 +119,31 @@ public class CuratedContentImportService {
 
   private ContentImportEntryResult importEntry(
       ContentImportManifestEntry entry, Path asset, String runId) {
+    String sourceKey = normalizedSourceKey(entry.importSourceKey());
     ContentCategory category = ContentCategory.parse(entry.category());
     CreatorProfileView creator = creator(entry);
-    ContentItem existing =
-        contentCommandStore.findByImportSourceKey(entry.importSourceKey()).orElse(null);
+    ContentItem existing = contentCommandStore.findByImportSourceKey(sourceKey).orElse(null);
     if (existing != null) {
-      return handleExisting(entry, creator, category, existing, runId);
+      return handleExisting(entry, sourceKey, creator, category, existing, runId);
     }
 
     long sizeBytes = fileSize(asset);
+    mediaProfilePolicy.validateSize(sizeBytes);
     MediaValidationResult media = mediaProfilePolicy.validate(mediaProbe.inspect(asset), sizeBytes);
-    String objectKey = objectKey(entry.importSourceKey());
+    String objectKey = objectKey(sourceKey);
     if (contentStorage.objectExists(objectKey)) {
       contentStorage.deleteNewlyUploadedObject(objectKey);
       LOGGER.info(
           "event=media_reconciliation_completed runId={} sourceKeyHash={}",
           runId,
-          sourceHash(entry.importSourceKey()));
+          sourceHash(sourceKey));
     }
-    contentStorage.uploadImportedObject(objectKey, asset, media.contentType(), media.sizeBytes());
+    try {
+      contentStorage.uploadImportedObject(objectKey, asset, media.contentType(), media.sizeBytes());
+    } catch (ContentStorageException exception) {
+      compensateUpload(runId, sourceKey, objectKey, exception);
+      throw exception;
+    }
     try {
       ContentItem imported =
           writeTransaction()
@@ -152,22 +159,23 @@ public class CuratedContentImportService {
                               media.contentType(),
                               media.sizeBytes(),
                               media.durationMs(),
-                              entry.importSourceKey(),
+                              sourceKey,
                               Instant.now(clock))));
       LOGGER.info(
           "event=curated_asset_imported runId={} contentId={} sourceKeyHash={}",
           runId,
           imported.id(),
-          sourceHash(entry.importSourceKey()));
-      return new ContentImportEntryResult(entry.importSourceKey(), "imported", "imported");
-    } catch (DataIntegrityViolationException | ApiException | IllegalArgumentException exception) {
-      compensateUpload(runId, objectKey);
+          sourceHash(sourceKey));
+      return new ContentImportEntryResult(sourceKey, "imported", "imported");
+    } catch (DataAccessException | ApiException | IllegalArgumentException exception) {
+      compensateUpload(runId, sourceKey, objectKey, exception);
       throw exception;
     }
   }
 
   private ContentImportEntryResult handleExisting(
       ContentImportManifestEntry entry,
+      String sourceKey,
       CreatorProfileView creator,
       ContentCategory category,
       ContentItem existing,
@@ -181,15 +189,15 @@ public class CuratedContentImportService {
           "event=public_media_inconsistency_detected runId={} contentId={} sourceKeyHash={}",
           runId,
           existing.id(),
-          sourceHash(entry.importSourceKey()));
-      return new ContentImportEntryResult(entry.importSourceKey(), "failed", "object missing");
+          sourceHash(sourceKey));
+      return new ContentImportEntryResult(sourceKey, "failed", "object missing");
     }
     LOGGER.info(
         "event=curated_asset_skipped runId={} contentId={} sourceKeyHash={}",
         runId,
         existing.id(),
-        sourceHash(entry.importSourceKey()));
-    return new ContentImportEntryResult(entry.importSourceKey(), "skipped", "already imported");
+        sourceHash(sourceKey));
+    return new ContentImportEntryResult(sourceKey, "skipped", "already imported");
   }
 
   private CreatorProfileView creator(ContentImportManifestEntry entry) {
@@ -202,16 +210,55 @@ public class CuratedContentImportService {
     throw new ContentImportException("creator is required");
   }
 
-  private void compensateUpload(String runId, String objectKey) {
+  private void compensateUpload(
+      String runId, String sourceKey, String objectKey, RuntimeException importFailure) {
     LOGGER.warn(
         "event=import_compensation_attempted runId={} objectKeyHash={}",
         runId,
         sourceHash(objectKey));
-    contentStorage.deleteNewlyUploadedObject(objectKey);
-    LOGGER.warn(
-        "event=import_compensation_completed runId={} objectKeyHash={}",
-        runId,
-        sourceHash(objectKey));
+    if (persistedContentOwnsObject(runId, sourceKey, objectKey, importFailure)) {
+      return;
+    }
+    try {
+      contentStorage.deleteNewlyUploadedObject(objectKey);
+      LOGGER.warn(
+          "event=import_compensation_completed runId={} objectKeyHash={}",
+          runId,
+          sourceHash(objectKey));
+    } catch (ContentStorageException cleanupFailure) {
+      importFailure.addSuppressed(cleanupFailure);
+      LOGGER.error(
+          "event=import_orphan_candidate_detected runId={} objectKeyHash={} errorCategory={}",
+          runId,
+          sourceHash(objectKey),
+          cleanupFailure.getClass().getSimpleName());
+    }
+  }
+
+  private boolean persistedContentOwnsObject(
+      String runId, String sourceKey, String objectKey, RuntimeException importFailure) {
+    try {
+      boolean owned =
+          contentCommandStore
+              .findByImportSourceKey(sourceKey)
+              .map(content -> objectKey.equals(content.mediaObjectKey()))
+              .orElse(false);
+      if (owned) {
+        LOGGER.warn(
+            "event=import_compensation_skipped_existing_owner runId={} objectKeyHash={}",
+            runId,
+            sourceHash(objectKey));
+      }
+      return owned;
+    } catch (DataAccessException consistencyCheckFailure) {
+      importFailure.addSuppressed(consistencyCheckFailure);
+      LOGGER.error(
+          "event=import_orphan_candidate_detected runId={} objectKeyHash={} errorCategory={}",
+          runId,
+          sourceHash(objectKey),
+          consistencyCheckFailure.getClass().getSimpleName());
+      return true;
+    }
   }
 
   private TransactionTemplate writeTransaction() {
@@ -245,10 +292,33 @@ public class CuratedContentImportService {
       throw new ContentImportException("asset path must be relative");
     }
     Path resolved = assetsRoot.resolve(relative).normalize();
-    if (!resolved.startsWith(assetsRoot) || !Files.isRegularFile(resolved)) {
+    if (!resolved.startsWith(assetsRoot)) {
       throw new ContentImportException("asset path is invalid");
     }
-    return resolved;
+    try {
+      Path realAsset = resolved.toRealPath();
+      if (!realAsset.startsWith(assetsRoot) || !Files.isRegularFile(realAsset)) {
+        throw new ContentImportException("asset path is invalid");
+      }
+      return realAsset;
+    } catch (IOException exception) {
+      throw new ContentImportException("asset path is invalid", exception);
+    }
+  }
+
+  private static Path verifiedAssetsRoot(Path assetsRoot) {
+    if (assetsRoot == null) {
+      throw new ContentImportException("assets root is missing");
+    }
+    try {
+      Path realRoot = assetsRoot.toRealPath();
+      if (!Files.isDirectory(realRoot)) {
+        throw new ContentImportException("assets root is invalid");
+      }
+      return realRoot;
+    } catch (IOException exception) {
+      throw new ContentImportException("assets root is invalid", exception);
+    }
   }
 
   private static long fileSize(Path asset) {
@@ -260,9 +330,20 @@ public class CuratedContentImportService {
   }
 
   private static void validateDuplicate(String value, Set<String> seen, String message) {
-    if (!StringUtils.hasText(value) || !seen.add(value.trim())) {
+    if (!seen.add(value)) {
       throw new ContentImportException(message);
     }
+  }
+
+  private static String normalizedSourceKey(String sourceKey) {
+    if (!StringUtils.hasText(sourceKey)) {
+      throw new ContentImportException("import source key is required");
+    }
+    String normalized = sourceKey.trim();
+    if (normalized.length() > ContentItem.IMPORT_SOURCE_KEY_MAX) {
+      throw new ContentImportException("import source key exceeds maximum length");
+    }
+    return normalized;
   }
 
   private static String objectKey(String importSourceKey) {

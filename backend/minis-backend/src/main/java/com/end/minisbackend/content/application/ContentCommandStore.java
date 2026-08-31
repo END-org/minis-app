@@ -10,7 +10,7 @@ public interface ContentCommandStore {
 
   Optional<ContentItem> findById(UUID contentId);
 
-  List<ContentItem> findPublishedItems();
+  List<ContentItem> findPublishedItemsAfter(UUID afterContentId, int limit);
 
   ContentItem saveAndFlush(ContentItem contentItem);
 }

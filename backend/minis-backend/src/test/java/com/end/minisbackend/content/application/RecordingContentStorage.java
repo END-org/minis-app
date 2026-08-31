@@ -10,6 +10,11 @@ final class RecordingContentStorage implements ContentStorage {
   private int uploadCount;
   private int deleteCount;
   private boolean bucketEnsured;
+  private boolean failUpload;
+  private boolean failDelete;
+
+  @Override
+  public void verifyAvailable() {}
 
   @Override
   public void ensureBucket() {
@@ -20,6 +25,9 @@ final class RecordingContentStorage implements ContentStorage {
   public void uploadImportedObject(
       String objectKey, Path sourceFile, String contentType, long sizeBytes) {
     uploadCount++;
+    if (failUpload) {
+      throw new ContentStorageException("simulated upload failure");
+    }
     objects.add(objectKey);
   }
 
@@ -31,6 +39,9 @@ final class RecordingContentStorage implements ContentStorage {
   @Override
   public void deleteNewlyUploadedObject(String objectKey) {
     deleteCount++;
+    if (failDelete) {
+      throw new ContentStorageException("simulated cleanup failure");
+    }
     objects.remove(objectKey);
   }
 
@@ -55,5 +66,21 @@ final class RecordingContentStorage implements ContentStorage {
 
   void putObject(String objectKey) {
     objects.add(objectKey);
+  }
+
+  boolean hasObject(String objectKey) {
+    return objects.contains(objectKey);
+  }
+
+  int objectCount() {
+    return objects.size();
+  }
+
+  void failUpload() {
+    failUpload = true;
+  }
+
+  void failDelete() {
+    failDelete = true;
   }
 }

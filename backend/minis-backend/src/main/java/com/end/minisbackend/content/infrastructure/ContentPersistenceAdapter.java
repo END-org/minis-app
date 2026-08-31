@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -56,10 +57,13 @@ class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStor
   }
 
   @Override
-  public List<ContentItem> findPublishedItems() {
-    return repository.findAll().stream()
-        .filter(content -> content.status() == ContentStatus.PUBLISHED)
-        .toList();
+  public List<ContentItem> findPublishedItemsAfter(UUID afterContentId, int limit) {
+    PageRequest page = PageRequest.of(0, limit);
+    if (afterContentId == null) {
+      return repository.findByStatusOrderByIdAsc(ContentStatus.PUBLISHED, page);
+    }
+    return repository.findByStatusAndIdGreaterThanOrderByIdAsc(
+        ContentStatus.PUBLISHED, afterContentId, page);
   }
 
   @Override

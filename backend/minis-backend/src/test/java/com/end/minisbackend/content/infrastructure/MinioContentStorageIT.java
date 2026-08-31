@@ -63,6 +63,9 @@ class MinioContentStorageIT {
 
       storage.deleteNewlyUploadedObject("content/imports/storage-test.mp4");
       assertThat(storage.objectExists("content/imports/storage-test.mp4")).isFalse();
+      assertThatThrownBy(() -> storage.signedReadUrl("content/imports/missing-storage-test.mp4"))
+          .isInstanceOf(ContentStorageException.class)
+          .hasMessage("Content object is missing");
     }
   }
 
@@ -96,6 +99,9 @@ class MinioContentStorageIT {
             SECRET_KEY,
             bucket,
             Duration.ofMinutes(10),
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(30),
+            Duration.ofMinutes(2),
             autoCreateBucket),
         CLOCK);
   }

@@ -28,6 +28,7 @@ pubspec.lock
 
 # Node / Web
 node_modules/
+.pnpm-store/
 dist/
 .next/
 

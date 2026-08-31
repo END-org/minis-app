@@ -6,6 +6,9 @@ COPY src src
 RUN ./mvnw --batch-mode --no-transfer-progress -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates ffmpeg wget \
+    && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system minis && useradd --system --gid minis --home-dir /app minis
 WORKDIR /app
 COPY --from=build /workspace/target/minis-backend-*.jar /app/minis-backend.jar

@@ -6,6 +6,7 @@
 
 - PostgreSQL with a persistent named volume.
 - MinIO with a persistent named volume.
+- A one-shot MinIO initializer that idempotently creates the configured application bucket.
 - The Spring Boot backend using the `demo` profile.
 - NGINX as the public event entry point, with the React event app built into the image.
 
@@ -40,10 +41,16 @@ DEMO_MINIO_API_PORT=9002
 DEMO_MINIO_CONSOLE_PORT=9003
 DEMO_HTTP_PORT=8088
 MINIS_CONTENT_STORAGE_BUCKET=minis-event-media
+MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME=PT10M
+MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT=PT5S
+MINIS_CONTENT_STORAGE_READ_TIMEOUT=PT30S
+MINIS_CONTENT_STORAGE_WRITE_TIMEOUT=PT2M
 MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
 MINIS_DEMO_ALLOWED_ORIGINS=http://localhost:8088
 MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED=false
 MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=
+SPRINGDOC_API_DOCS_ENABLED=false
+SPRINGDOC_SWAGGER_UI_ENABLED=false
 ```
 
 Demo serves React and `/api/` under one public NGINX origin, `http://localhost:8088` by default. NGINX forwards normal request headers upstream, so the backend demo profile explicitly allows `MINIS_DEMO_ALLOWED_ORIGINS`. Do not reuse the local CORS variable for demo, and do not use wildcard credentialed CORS.

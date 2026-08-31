@@ -28,8 +28,8 @@ Copy the root environment template:
 cp ../../.env.example ../../.env
 ```
 
-The backend includes `spring-dotenv`, so Spring Boot reads normal environment variables and root
-`.env` values. Docker Compose also reads the root `.env` file. Keep secret values out of Git.
+The repository PowerShell launcher reads the ignored root `.env` into the backend process without
+printing values. Docker Compose reads the same file directly. Keep secret values out of Git.
 
 The default local database name is `minis_event_local`, which is intentionally separate from older pre-Flyway development databases.
 
@@ -58,30 +58,46 @@ From the repository root:
 ```bash
 docker compose -f compose.local.yml up -d
 docker compose -f compose.local.yml down
-docker compose -f compose.local.yml down -v
 docker compose -f compose.demo.yml up -d --build
 docker compose -f compose.demo.yml down
 ```
+
+Commands using `down -v` are documented only under the destructive old-volume policy below.
+Both Compose files create the configured application bucket idempotently after MinIO is healthy;
+the backend keeps `MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false`.
 
 From `backend/minis-backend`:
 
 ```bash
 ./mvnw spotless:apply
 ./mvnw --batch-mode --no-transfer-progress verify
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ./mvnw --batch-mode --no-transfer-progress package
 docker build -t minis-backend:local .
 ```
 
-Windows PowerShell equivalents:
+On bash-compatible shells, export the root `.env` before starting the backend:
+
+```bash
+set -a
+. ./.env
+set +a
+cd backend/minis-backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+Windows PowerShell equivalents, with verification run from `backend/minis-backend` and startup run
+from the repository root through the environment launcher:
 
 ```powershell
 .\mvnw.cmd spotless:apply
 .\mvnw.cmd --batch-mode --no-transfer-progress verify
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
+Set-Location ..\..
+.\scripts\local\start-backend.ps1
 ```
 
-Run the local application only after PostgreSQL is available and `GOOGLE_APPLICATION_CREDENTIALS` plus Firebase Web SDK environment variables are set in the shell or IDE run configuration.
+Run the local application only after PostgreSQL is available and `GOOGLE_APPLICATION_CREDENTIALS`
+plus Firebase Web SDK environment variables are set in the root `.env`, shell, or IDE run
+configuration.
 
 The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO_MINIO_ROOT_USER`, `DEMO_MINIO_ROOT_PASSWORD`, `FIREBASE_PROJECT_ID`, and `GOOGLE_APPLICATION_CREDENTIALS` values.
 
@@ -91,6 +107,10 @@ Content storage values:
 MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT=http://localhost:9000
 MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
 MINIS_CONTENT_STORAGE_BUCKET=minis-event-media
+MINIS_CONTENT_STORAGE_SIGNED_READ_LIFETIME=PT10M
+MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT=PT5S
+MINIS_CONTENT_STORAGE_READ_TIMEOUT=PT30S
+MINIS_CONTENT_STORAGE_WRITE_TIMEOUT=PT2M
 MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
 MINIS_CONTENT_IMPORTER_FFPROBE_PATH=ffprobe
 ```
@@ -98,6 +118,9 @@ MINIS_CONTENT_IMPORTER_FFPROBE_PATH=ffprobe
 The demo profile uses `http://minio:9000` internally and `http://localhost:9002` as the default
 browser-reachable signing endpoint. Set `MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=true` only for
 disposable local/demo importer runs where bucket creation is intended.
+
+The backend container installs `ffprobe` from the distribution FFmpeg package. Storage endpoints,
+credentials, signed-read lifetime, and HTTP timeouts are validated during backend startup.
 
 Optional local/demo event-admin bootstrap:
 
@@ -163,7 +186,7 @@ The static page at `/auth-test/index.html` is only a diagnostics launcher. It do
 The importer is explicit command mode only; it is not a public seed endpoint and does not run during
 normal startup.
 
-From `backend/minis-backend`:
+From `backend/minis-backend` after exporting the root `.env` into the process:
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.importer.enabled=true --minis.content.importer.manifest-path=<path-to-private-manifest.json> --minis.content.importer.assets-root=<path-to-private-assets-root> --minis.content.importer.run-id=<safe-run-id>"
@@ -177,7 +200,8 @@ Reconciliation command:
 
 The importer validates MP4/H.264/AAC vertical video with `ffprobe`, uploads to MinIO, writes
 PostgreSQL metadata, skips matching re-imports, and deletes only newly uploaded objects when database
-persistence fails. See `../../docs/media-and-upload.md` for the full policy.
+persistence fails and no committed row owns that object. Reconciliation reads published rows in
+bounded batches. See `../../docs/media-and-upload.md` for the full policy.
 
 ## Common Local Errors
 
@@ -188,7 +212,7 @@ persistence fails. See `../../docs/media-and-upload.md` for the full policy.
 - Email not verified: send the verification email, verify, reload the Firebase user, then request a fresh token.
 - Local React NETWORK error: keep `VITE_API_BASE_URL` blank, run Vite on `http://localhost:5173`, confirm the backend is reachable at `http://localhost:8080`, and confirm `MINIS_LOCAL_ALLOWED_ORIGINS` is exactly the React origin.
 - PostgreSQL unavailable: run `docker compose -f compose.local.yml up -d` from the repository root.
-- Environment variables not loaded: export them in the shell, configure them in the IDE run configuration, or keep them in the root `.env` file loaded by `spring-dotenv`.
+- Environment variables not loaded: use `scripts/local/start-backend.ps1`, export the root `.env` in the shell, or configure the values in the IDE run configuration.
 
 ## Quality Gates
 
@@ -203,6 +227,7 @@ Flyway is the source of truth for the physical schema. Current migrations:
 - `src/main/resources/db/migration/V1__create_identity_user_accounts.sql`
 - `src/main/resources/db/migration/V2__create_creator_profiles_and_event_admin_audit.sql`
 - `src/main/resources/db/migration/V3__create_content_items.sql`
+- `src/main/resources/db/migration/V4__add_content_read_and_reconciliation_indexes.sql`
 
 - `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
 - `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.
@@ -213,14 +238,22 @@ Hibernate schema generation modes `update`, `create`, and `create-drop` are not 
 
 ### Old-Volume Policy
 
-Phase 1 expects a dedicated clean event database. Unknown Hibernate-created schemas are not adopted silently. Recreate disposable local PostgreSQL and MinIO volumes with:
+Normal local and demo shutdown commands preserve named PostgreSQL and MinIO volumes:
+
+```bash
+docker compose -f compose.local.yml down
+docker compose -f compose.demo.yml down
+```
+
+Phase 1 expects a dedicated clean event database. Unknown Hibernate-created schemas are not adopted
+silently. The following local reset is destructive and must be used only for disposable data:
 
 ```bash
 docker compose -f compose.local.yml down -v
 docker compose -f compose.local.yml up -d
 ```
 
-Recreate disposable demo volumes with:
+The following demo reset is also destructive:
 
 ```bash
 docker compose -f compose.demo.yml down -v
