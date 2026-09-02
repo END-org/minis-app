@@ -27,6 +27,11 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
 
+  servlet:
+    multipart:
+      max-file-size: ${MINIS_CONTENT_UPLOAD_MAX_FILE_SIZE:200MB}
+      max-request-size: ${MINIS_CONTENT_UPLOAD_MAX_REQUEST_SIZE:205MB}
+
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
@@ -100,6 +105,10 @@ minis:
       firebase-uids: ${MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS:}
 
   content:
+    upload:
+      max-file-size: ${MINIS_CONTENT_UPLOAD_MAX_FILE_SIZE:200MB}
+      temp-directory: ${MINIS_CONTENT_UPLOAD_TEMP_DIR:}
+      stale-age: ${MINIS_CONTENT_UPLOAD_STALE_AGE:PT30M}
     storage:
       internal-endpoint: ${MINIS_CONTENT_STORAGE_INTERNAL_ENDPOINT:}
       public-endpoint: ${MINIS_CONTENT_STORAGE_PUBLIC_ENDPOINT:}
@@ -120,3 +129,4 @@ minis:
       max-probe-output-bytes: ${MINIS_CONTENT_IMPORTER_MAX_PROBE_OUTPUT_BYTES:1048576}
     reconciliation:
       enabled: ${MINIS_CONTENT_RECONCILIATION_ENABLED:false}
+      stale-age: ${MINIS_CONTENT_UPLOAD_STALE_AGE:PT30M}

@@ -6,11 +6,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.end.minisbackend.TestTransactionManager;
 import com.end.minisbackend.content.domain.ContentCategory;
 import com.end.minisbackend.content.domain.ContentItem;
+import com.end.minisbackend.content.domain.ContentStatus;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ContentReconciliationServiceTest {
+  private static final Clock CLOCK =
+      Clock.fixed(Instant.parse("2026-07-17T12:00:00Z"), ZoneOffset.UTC);
+
   @Test
   void reconcileReportsPublishedObjectsThatAreMissingFromStorage() {
     InMemoryContentCommandStore store = new InMemoryContentCommandStore();
@@ -26,6 +33,7 @@ class ContentReconciliationServiceTest {
     assertThat(summary.runId()).isEqualTo("event-readiness");
     assertThat(summary.checkedCount()).isEqualTo(2);
     assertThat(summary.missingCount()).isEqualTo(1);
+    assertThat(summary.staleUploadFailedCount()).isZero();
     assertThat(summary.exitCode()).isEqualTo(1);
   }
 
@@ -45,6 +53,7 @@ class ContentReconciliationServiceTest {
     assertThat(summary.runId()).isNotBlank();
     assertThat(summary.checkedCount()).isEqualTo(2);
     assertThat(summary.missingCount()).isZero();
+    assertThat(summary.staleUploadFailedCount()).isZero();
     assertThat(summary.exitCode()).isZero();
   }
 
@@ -62,8 +71,35 @@ class ContentReconciliationServiceTest {
 
     assertThat(summary.checkedCount()).isEqualTo(205);
     assertThat(summary.missingCount()).isZero();
+    assertThat(summary.staleUploadFailedCount()).isZero();
     assertThat(store.largestRequestedBatch()).isEqualTo(100);
     assertThat(store.publishedBatchQueryCount()).isEqualTo(4);
+  }
+
+  @Test
+  void reconcileMarksStaleUploadingRowsFailedBeforeObjectChecks() {
+    InMemoryContentCommandStore store = new InMemoryContentCommandStore();
+    RecordingContentStorage storage = new RecordingContentStorage();
+    ContentItem stale =
+        ContentItem.reserveUpload(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Queued title",
+            "Queued description",
+            ContentCategory.EDUCATION,
+            "content/uploads/stale.mp4",
+            "stale-upload-1",
+            Instant.parse("2026-07-17T11:00:00Z"));
+    store.saveAndFlush(stale);
+
+    ContentReconciliationSummary summary =
+        service(store, storage).reconcile("stale-run", Duration.ofMinutes(30));
+
+    assertThat(summary.checkedCount()).isZero();
+    assertThat(summary.missingCount()).isZero();
+    assertThat(summary.staleUploadFailedCount()).isEqualTo(1);
+    assertThat(stale.status()).isEqualTo(ContentStatus.FAILED);
+    assertThat(stale.uploadFailureCode()).isEqualTo("STALE_UPLOAD");
   }
 
   @Test
@@ -79,7 +115,7 @@ class ContentReconciliationServiceTest {
 
   private static ContentReconciliationService service(
       InMemoryContentCommandStore store, RecordingContentStorage storage) {
-    return new ContentReconciliationService(store, storage, new TestTransactionManager());
+    return new ContentReconciliationService(store, storage, new TestTransactionManager(), CLOCK);
   }
 
   private static ContentItem contentItem(String objectKey) {

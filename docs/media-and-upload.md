@@ -1,14 +1,12 @@
 # Media And Upload
 
-## Phase 4 Scope
+## Phase 5 Scope
 
-Phase 4 implements a read-only event media path:
+The normal event media path is controlled creator upload:
 
-curated local/demo asset -> `ffprobe` inspection -> MinIO object -> PostgreSQL metadata -> public
-feed and creator content APIs.
+Creator React app -> authenticated multipart request -> server-owned temporary spool -> `ffprobe` inspection -> private MinIO object -> PostgreSQL publication -> public feed.
 
-Live creator upload, presigned upload, transcoding, thumbnails, reports, analytics, and
-media-processing workers are intentionally deferred.
+The Phase 4 curated importer remains an explicit recovery/demo path. It is not the normal product workflow. Direct-to-cloud uploads, resumable uploads, provider-specific multipart orchestration, transcoding, thumbnails, subtitles, reports, analytics, and media-processing workers remain deferred.
 
 ## Supported Event Profile
 
@@ -33,6 +31,24 @@ Target matrix for manual rehearsal:
 
 - Desktop: current Chrome, Edge, Firefox, and Safari where available.
 - Mobile: the actual event iPhone and Android browser targets.
+
+## Controlled Creator Upload
+
+`POST /api/v1/content` accepts `multipart/form-data` with these parts:
+
+- `metadata`: JSON with `title`, `description`, and `category`.
+- `video`: one MP4 video file.
+- `Idempotency-Key`: an 8-160 character request identity header.
+
+Only an authenticated, active, backend-provisioned `CREATOR` may upload. Creator ownership comes from the verified backend principal, not a request field. The server generates the content ID and private `content/uploads/<content-id>.mp4` object key; neither the raw key nor a temporary path is returned.
+
+The backend rejects empty files, files over 200 MB, unsafe filenames, a non-`.mp4` filename, a MIME type other than `video/mp4`, a missing MP4 `ftyp` signature, malformed/timeout probe output, and media outside the accepted profile. Spring accepts a 200 MB file with a 205 MB multipart request ceiling. The demo proxy uses the same 205 MB ceiling and 120-second request/proxy transfer timeouts; storage has a bounded two-minute write timeout.
+
+The lifecycle is `UPLOADING` -> `PUBLISHED` or `FAILED`; published items may later become `REMOVED`. `UPLOADING` and `FAILED` are never public. My Uploads returns the owner-only state, safe failure code/reason, timestamps, and a public content projection only after publication.
+
+Idempotency is creator-scoped. A new key reserves and executes one logical upload. A retry after a lost successful response returns the same `PUBLISHED` result. A duplicate during `UPLOADING` returns `UPLOAD_IN_PROGRESS`; a duplicate after `FAILED` returns `UPLOAD_ALREADY_FAILED` and requires a new key; metadata that differs for a reused key returns a conflict. The uniqueness constraint makes concurrent duplicates converge on one logical upload.
+
+The operation uses short database transactions: reserve the `UPLOADING` row, stream/spool and validate outside a transaction, upload to MinIO, then publish in a short transaction. If storage or publication fails after object upload, the row becomes `FAILED` and the service deletes the new object unless a committed published row owns it. Cleanup failure is recorded as an orphan candidate for operations; it is not exposed to clients.
 
 ## Inspection-Only Import
 
@@ -130,12 +146,12 @@ Run reconciliation as a one-off command mode:
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments="--minis.content.reconciliation.enabled=true --minis.content.reconciliation.run-id=<safe-run-id>"
 ```
 
-It checks published metadata in bounded batches for missing objects and logs
-`public_media_inconsistency_detected`. It does not invent rows, delete content, or mark a broken item
-as successful.
+It first marks bounded batches of `UPLOADING` rows older than `MINIS_CONTENT_UPLOAD_STALE_AGE` (30 minutes by default) as `FAILED` with a safe stale-upload reason. It then checks published metadata in bounded batches for missing objects and logs `public_media_inconsistency_detected`. It does not invent rows, delete content, or mark a broken item as successful.
 
 ## Public APIs
 
+- `POST /api/v1/content` with multipart `metadata`, `video`, and `Idempotency-Key` for active creators.
+- `GET /api/v1/me/uploads?cursor=&size=` for the owner-only upload history.
 - `GET /api/v1/categories`
 - `GET /api/v1/feed?cursor=&limit=&category=`
 - `GET /api/v1/content/{contentId}`
@@ -159,9 +175,6 @@ Cursor order is `publishedAt DESC, id DESC`. The cursor encodes that pair and is
 Malformed, oversized, or unsupported cursors return the standard validation error.
 
 ## Social Relationships
-
-Live creator upload is not part of this implementation. Test media still enters the system through
-the accepted Phase 4 curated importer.
 
 Likes and saves are PostgreSQL relationships between the authenticated local account and
 `PUBLISHED` content. Follows are PostgreSQL relationships between an authenticated local account and
@@ -216,6 +229,8 @@ The backend test suite verifies MinIO returns `206 Partial Content` for a signed
 The demo NGINX proxy does not path-prefix signed media URLs. MinIO CORS is not configured by default
 because plain video element playback does not require JavaScript-readable cross-origin responses.
 Add bucket CORS only after testing a target browser path that genuinely needs it.
+
+The API CORS policy allows `Authorization`, `Content-Type`, `X-Correlation-ID`, and `Idempotency-Key` from the configured local/demo origin. It does not allow credentialed wildcard origins.
 
 ## Golden Snapshot
 

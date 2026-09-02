@@ -25,6 +25,10 @@ export interface ContentResponse {
   readonly categoryLabel: string;
   readonly media: ContentMediaResponse;
   readonly publishedAt: string;
+  readonly likeCount: number;
+  readonly liked: boolean;
+  readonly saved: boolean;
+  readonly following: boolean;
 }
 
 export interface ContentPageResponse {
@@ -41,6 +45,8 @@ export interface CategoryResponse {
 export const feedQueryKey = ["feed"] as const;
 export const categoriesQueryKey = ["categories"] as const;
 export const creatorContentQueryKey = ["creator-content"] as const;
+export const likedContentQueryKey = ["content-collection", "liked"] as const;
+export const savedContentQueryKey = ["content-collection", "saved"] as const;
 
 export function getFeed(
   client: ApiClient,
@@ -53,13 +59,13 @@ export function getFeed(
       cursor,
       limit: "10",
     }),
-    { auth: "none", method: "GET" },
+    { auth: "optional", method: "GET" },
   );
 }
 
 export function getContent(client: ApiClient, contentId: string): Promise<ContentResponse> {
   return client.request<ContentResponse>(`/api/v1/content/${encodeURIComponent(contentId)}`, {
-    auth: "none",
+    auth: "optional",
     method: "GET",
   });
 }
@@ -74,7 +80,7 @@ export function getCreatorContent(
       cursor,
       limit: "12",
     }),
-    { auth: "none", method: "GET" },
+    { auth: "optional", method: "GET" },
   );
 }
 
@@ -83,6 +89,60 @@ export function getCategories(client: ApiClient): Promise<readonly CategoryRespo
     auth: "none",
     method: "GET",
   });
+}
+
+export function getLikedContent(
+  client: ApiClient,
+  cursor: string | undefined,
+): Promise<ContentPageResponse> {
+  return client.request<ContentPageResponse>(
+    toPath("/api/v1/me/liked-content", {
+      cursor,
+      size: "12",
+    }),
+    { auth: "required", method: "GET" },
+  );
+}
+
+export function getSavedContent(
+  client: ApiClient,
+  cursor: string | undefined,
+): Promise<ContentPageResponse> {
+  return client.request<ContentPageResponse>(
+    toPath("/api/v1/me/saved-content", {
+      cursor,
+      size: "12",
+    }),
+    { auth: "required", method: "GET" },
+  );
+}
+
+export function setContentLike(
+  client: ApiClient,
+  contentId: string,
+  liked: boolean,
+): Promise<void> {
+  return client
+    .request<undefined>(`/api/v1/content/${encodeURIComponent(contentId)}/like`, {
+      auth: "required",
+      method: liked ? "PUT" : "DELETE",
+      retryOnUnauthorized: false,
+    })
+    .then(() => undefined);
+}
+
+export function setContentSave(
+  client: ApiClient,
+  contentId: string,
+  saved: boolean,
+): Promise<void> {
+  return client
+    .request<undefined>(`/api/v1/content/${encodeURIComponent(contentId)}/save`, {
+      auth: "required",
+      method: saved ? "PUT" : "DELETE",
+      retryOnUnauthorized: false,
+    })
+    .then(() => undefined);
 }
 
 function toPath(path: string, params: Record<string, string | undefined>): string {

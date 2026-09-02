@@ -7,7 +7,12 @@ public interface ContentStorage {
 
   void ensureBucket();
 
-  void uploadImportedObject(String objectKey, Path sourceFile, String contentType, long sizeBytes);
+  void uploadObject(String objectKey, Path sourceFile, String contentType, long sizeBytes);
+
+  default void uploadImportedObject(
+      String objectKey, Path sourceFile, String contentType, long sizeBytes) {
+    uploadObject(objectKey, sourceFile, contentType, sizeBytes);
+  }
 
   boolean objectExists(String objectKey);
 

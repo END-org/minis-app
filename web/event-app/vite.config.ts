@@ -4,16 +4,28 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const devHost = envValue(env, "MINIS_EVENT_APP_DEV_HOST") ?? "localhost";
-  const devPort = parsePort(env.MINIS_EVENT_APP_DEV_PORT, 5173);
+  const devHost =
+    envValue(env, "MINIS_EVENT_APP_DEV_HOST") ??
+    processValue("MINIS_EVENT_APP_DEV_HOST") ??
+    "localhost";
+  const devPort = parsePort(
+    envValue(env, "MINIS_EVENT_APP_DEV_PORT") ?? processValue("MINIS_EVENT_APP_DEV_PORT"),
+    5173,
+  );
   const proxyTarget =
-    envValue(env, "MINIS_EVENT_APP_DEV_PROXY_TARGET") ?? "http://localhost:8080";
+    envValue(env, "MINIS_EVENT_APP_DEV_PROXY_TARGET") ??
+    processValue("MINIS_EVENT_APP_DEV_PROXY_TARGET") ??
+    "http://localhost:8080";
 
   return {
     plugins: [react()],
     preview: {
       host: devHost,
-      port: parsePort(env.MINIS_EVENT_APP_PREVIEW_PORT, 4173),
+      port: parsePort(
+        envValue(env, "MINIS_EVENT_APP_PREVIEW_PORT") ??
+          processValue("MINIS_EVENT_APP_PREVIEW_PORT"),
+        4173,
+      ),
       strictPort: true,
     },
     server: {
@@ -39,8 +51,17 @@ export default defineConfig(({ mode }) => {
   };
 });
 
-function envValue(env: Record<string, string>, name: string): string | undefined {
+function envValue(env: Record<string, string | undefined>, name: string): string | undefined {
   const value = env[name];
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function processValue(name: string): string | undefined {
+  const value = process.env[name];
   if (!value) {
     return undefined;
   }

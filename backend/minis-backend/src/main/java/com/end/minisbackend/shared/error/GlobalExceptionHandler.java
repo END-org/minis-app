@@ -6,11 +6,14 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /** Converts application and MVC exceptions into the shared API error format. */
 @RestControllerAdvice
@@ -35,10 +38,19 @@ public class GlobalExceptionHandler {
     MethodArgumentNotValidException.class,
     BindException.class,
     ConstraintViolationException.class,
-    MethodArgumentTypeMismatchException.class
+    MethodArgumentTypeMismatchException.class,
+    MissingServletRequestPartException.class,
+    HttpMessageNotReadableException.class
   })
   ResponseEntity<ApiErrorResponse> handleValidation(HttpServletRequest request) {
     ApiErrorCode code = ApiErrorCode.VALIDATION_ERROR;
+    logExpectedFailure(request, code, null);
+    return ResponseEntity.status(code.status()).body(errorWriter.responseFor(request, code));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(HttpServletRequest request) {
+    ApiErrorCode code = ApiErrorCode.UPLOAD_TOO_LARGE;
     logExpectedFailure(request, code, null);
     return ResponseEntity.status(code.status()).body(errorWriter.responseFor(request, code));
   }

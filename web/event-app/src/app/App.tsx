@@ -14,7 +14,11 @@ import { VerifyEmailPage } from "../features/authentication/VerifyEmailPage";
 import { CreatorProfilePage } from "../features/creators/CreatorProfilePage";
 import { CreatorsDirectoryPage } from "../features/creators/CreatorsDirectoryPage";
 import { ContentDetailPage } from "../features/feed/ContentDetailPage";
+import { LikedContentPage, SavedContentPage } from "../features/feed/ContentCollectionPage";
 import { FeedPage } from "../features/feed/FeedPage";
+import { MyUploadsPage } from "../features/uploads/MyUploadsPage";
+import { RequireCreator } from "../features/uploads/RequireCreator";
+import { UploadPage } from "../features/uploads/UploadPage";
 import { EventShell } from "../shared/layout/EventShell";
 import "../shared/styles/global.css";
 import { AppProviders } from "./AppProviders";
@@ -28,6 +32,42 @@ export function AppRoutes() {
         <Route path="/content/:contentId" element={<ContentDetailPage />} />
         <Route path="/creators" element={<CreatorsDirectoryPage />} />
         <Route path="/creators/:slug" element={<CreatorProfilePage />} />
+        <Route
+          path="/liked"
+          element={
+            <RequireAuthenticated>
+              <LikedContentPage />
+            </RequireAuthenticated>
+          }
+        />
+        <Route
+          path="/saved"
+          element={
+            <RequireAuthenticated>
+              <SavedContentPage />
+            </RequireAuthenticated>
+          }
+        />
+        <Route
+          path="/upload"
+          element={
+            <RequireAuthenticated>
+              <RequireCreator>
+                <UploadPage />
+              </RequireCreator>
+            </RequireAuthenticated>
+          }
+        />
+        <Route
+          path="/uploads"
+          element={
+            <RequireAuthenticated>
+              <RequireCreator>
+                <MyUploadsPage />
+              </RequireCreator>
+            </RequireAuthenticated>
+          }
+        />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />

@@ -2,6 +2,7 @@ package com.end.minisbackend.content.infrastructure;
 
 import com.end.minisbackend.content.domain.ContentItem;
 import com.end.minisbackend.content.domain.ContentStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,8 +12,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface ContentItemRepository extends JpaRepository<ContentItem, UUID> {
   Optional<ContentItem> findByImportSourceKey(String importSourceKey);
 
+  Optional<ContentItem> findByCreatorUserIdAndUploadIdempotencyKey(
+      UUID creatorUserId, String uploadIdempotencyKey);
+
   List<ContentItem> findByStatusOrderByIdAsc(ContentStatus status, Pageable pageable);
 
   List<ContentItem> findByStatusAndIdGreaterThanOrderByIdAsc(
       ContentStatus status, UUID afterContentId, Pageable pageable);
+
+  List<ContentItem> findByStatusAndUploadStartedAtBeforeOrderByUploadStartedAtAscIdAsc(
+      ContentStatus status, Instant uploadStartedBefore, Pageable pageable);
 }

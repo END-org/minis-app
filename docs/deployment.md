@@ -10,7 +10,7 @@
 - The Spring Boot backend using the `demo` profile.
 - NGINX as the public event entry point, with the React event app built into the image.
 
-The reverse proxy serves `/api/` to Spring Boot, exposes backend readiness at `/healthz`, preserves or generates `X-Correlation-ID`, forwards host/protocol headers, sets request-size and timeout defaults, serves React at `/`, and falls back unknown frontend routes to the SPA shell.
+The reverse proxy serves `/api/` to Spring Boot, exposes backend readiness at `/healthz`, preserves or generates `X-Correlation-ID`, forwards host/protocol headers, accepts a bounded 205 MB multipart request, uses 120-second body/proxy transfer timeouts, serves React at `/`, and falls back unknown frontend routes to the SPA shell.
 
 Signed media URLs are generated for the browser-reachable MinIO origin, `http://localhost:9002` by
 default. NGINX does not path-prefix or rewrite signed media URLs.
@@ -46,6 +46,10 @@ MINIS_CONTENT_STORAGE_CONNECT_TIMEOUT=PT5S
 MINIS_CONTENT_STORAGE_READ_TIMEOUT=PT30S
 MINIS_CONTENT_STORAGE_WRITE_TIMEOUT=PT2M
 MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
+MINIS_CONTENT_UPLOAD_MAX_FILE_SIZE=200MB
+MINIS_CONTENT_UPLOAD_MAX_REQUEST_SIZE=205MB
+MINIS_CONTENT_UPLOAD_TEMP_DIR=
+MINIS_CONTENT_UPLOAD_STALE_AGE=PT30M
 MINIS_DEMO_ALLOWED_ORIGINS=http://localhost:8088
 MINIS_EVENT_ADMIN_BOOTSTRAP_ENABLED=false
 MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=
@@ -100,13 +104,16 @@ Manual rehearsal requires Firebase Email/Password and Google providers enabled f
 - event admin can grant creator capability, verify the creator, suspend/reactivate an account, and
   revoke creator capability without deleting the creator profile.
 - public creator routes show only active accounts with the current backend `CREATOR` role.
-- imported event videos appear in the guest feed and public creator content pages.
-- authenticated active users can like, save, and follow through backend APIs after content exists.
+- a prepared active creator can use `/upload` to publish an accepted vertical MP4 and reach it from the feed plus public creator content pages.
+- My Uploads presents published and deliberately failed attempts only to that creator; a second creator cannot read them.
+- authenticated active users can like, save, and follow through the React product surfaces after content exists.
 - guest feed responses include `likeCount`, `liked=false`, `saved=false`, and `following=false`.
 - browser media URLs contain the browser-reachable MinIO origin, not Docker service names.
 - Range requests against a signed media URL return `206 Partial Content`.
 
 Do not store prepared-account passwords or Firebase Admin credentials in Git, screenshots, docs, frontend bundles, or static diagnostics.
+
+The demo flow deliberately remains server-mediated and provider-neutral. Direct browser-to-object-store upload, resumable upload, provider-specific multipart orchestration, transcoding, thumbnails, subtitles, CDN migration, and media-processing workers require a separate production R&D decision.
 
 Firebase Console settings requiring manual confirmation for each event environment:
 

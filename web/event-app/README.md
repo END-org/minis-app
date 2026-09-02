@@ -47,7 +47,15 @@ Firebase Admin credentials are backend-only. Do not copy Admin JSON, service-acc
 
 ## Local Start
 
-Start PostgreSQL, MinIO, and the backend first. From `web/event-app`:
+The recommended Windows PowerShell workflow runs from the repository root:
+
+```powershell
+.\scripts\local\start-dev.ps1
+```
+
+It loads the ignored root `.env` into helper-owned backend and Vite processes, validates local Compose, waits for readiness, and prints the React/API URLs without printing secret values. Use `.\scripts\local\status-dev.ps1` for a safe stack summary and `.\scripts\local\stop-dev.ps1` to stop only helper-owned processes plus local Compose without deleting named data volumes.
+
+For focused client work after PostgreSQL, MinIO, and the backend are already running, from `web/event-app`:
 
 ```bash
 npm ci
@@ -88,6 +96,8 @@ On the first retry-safe 401, the API client force-refreshes the Firebase ID toke
 - `/content/:contentId` loads a public playable content projection.
 - `/creators` and `/creators/:slug` load public active creators without authentication.
 - `/creators/:slug` also loads public creator content from `GET /api/v1/creators/{slug}/content`.
+- `/liked` and `/saved` are authenticated private collections with bounded cursor pagination.
+- `/upload` and `/uploads` are presentation-gated to active backend `CREATOR` accounts. Upload uses browser XHR only for multipart progress; normal API calls remain on the typed API client.
 - `/guest` keeps the simple guest/diagnostic landing surface.
 - `/sign-in`, `/sign-up`, `/verify-email`, and `/forgot-password` own Firebase browser authentication flows.
 - `/account` uses the provisioned backend account projection and allows the signed-in user to edit
@@ -97,6 +107,12 @@ On the first retry-safe 401, the API client force-refreshes the Firebase ID toke
   verification.
 
 Role, account status, and creator verification are displayed only from backend responses.
+
+## Social And Upload Behavior
+
+Feed cards and content detail expose Like, Save, and Follow actions. Creator directory and profile surfaces expose Follow where appropriate. Guests see a sign-in prompt that preserves the current destination; verification-required and blocked account states receive safe inline feedback. Mutations are deliberately non-optimistic: controls are disabled while a request is pending, then TanStack Query invalidates the session-scoped feed, creator, collection, and upload surfaces after success.
+
+Creator upload accepts one non-empty `.mp4` file up to 200 MB and client-checks the extension plus browser MIME indication before submission. The backend remains authoritative for the actual content type, MP4 signature, `ffprobe` profile, ownership, and publication. Upload sends one logical `Idempotency-Key`; a retry after an expired token reuses the same key. Terminal validation/failed-key responses rotate the key for a new attempt. Successful publication links straight to the public video, while My Uploads shows private `UPLOADING`, `FAILED`, `PUBLISHED`, and `REMOVED` state.
 
 ## Media Feed Behavior
 

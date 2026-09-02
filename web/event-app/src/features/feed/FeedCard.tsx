@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ContentSocialActions } from "../social/ContentSocialActions";
 import type { ContentResponse } from "./feedApi";
 import { FeedVideo } from "./FeedVideo";
 
@@ -48,6 +49,7 @@ export function FeedCard({
           <span>{content.creator.displayName}</span>
           {content.creator.verified ? <strong>Verified</strong> : null}
         </Link>
+        <ContentSocialActions compact content={content} />
       </div>
     </article>
   );

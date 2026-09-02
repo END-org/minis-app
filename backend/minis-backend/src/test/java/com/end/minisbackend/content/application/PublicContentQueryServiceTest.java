@@ -87,7 +87,9 @@ class PublicContentQueryServiceTest {
         contentInteractionStore,
         new RecordingContentStorage(),
         new CreatorProfileQueryService(
-            new InMemoryCreatorProfileStore(CREATOR_A, "creator-a"), new TestTransactionManager()),
+            new InMemoryCreatorProfileStore(CREATOR_A, "creator-a"),
+            creatorFollowStore,
+            new TestTransactionManager()),
         creatorFollowStore,
         new TestTransactionManager());
   }

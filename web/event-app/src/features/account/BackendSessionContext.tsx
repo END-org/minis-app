@@ -252,5 +252,26 @@ function removeSessionScopedQueries(queryClient: QueryClient): void {
 
 function isSessionScopedQuery(query: { readonly queryKey: readonly unknown[] }): boolean {
   const firstKey = query.queryKey[0];
-  return firstKey === "account" || firstKey === "admin";
+  return (
+    firstKey === "account" ||
+    firstKey === "admin" ||
+    firstKey === "feed" ||
+    firstKey === "creator-content" ||
+    firstKey === "creators" ||
+    firstKey === "content-collection" ||
+    firstKey === "uploads"
+  );
+}
+
+export function backendSessionQueryKey(state: BackendSessionState): string {
+  if (state.status === "ready" && state.account) {
+    return `account:${state.account.id}`;
+  }
+  if (state.status === "signed-out") {
+    return "guest";
+  }
+  if (state.firebaseUid) {
+    return `${state.status}:${state.firebaseUid}`;
+  }
+  return state.status;
 }

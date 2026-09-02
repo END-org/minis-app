@@ -34,7 +34,7 @@ class DatabaseMigrationIT {
       try (ConfigurableApplicationContext ignored = startApplication(database, "demo", "test")) {
         assertThat(
                 queryForInt(database, "select count(*) from flyway_schema_history where success"))
-            .isEqualTo(5);
+            .isEqualTo(6);
         assertThat(tableExists(database, "user_accounts")).isTrue();
         assertThat(tableExists(database, "creator_profiles")).isTrue();
         assertThat(tableExists(database, "event_admin_audit_entries")).isTrue();
@@ -47,10 +47,19 @@ class DatabaseMigrationIT {
         assertThat(indexExists(database, "idx_content_likes_content_id")).isTrue();
         assertThat(indexExists(database, "idx_content_likes_user_created_at_content_id")).isTrue();
         assertThat(indexExists(database, "idx_content_saves_user_created_at_content_id")).isTrue();
+        assertThat(indexExists(database, "idx_content_items_creator_uploads")).isTrue();
+        assertThat(indexExists(database, "idx_content_items_stale_uploads")).isTrue();
         assertThat(constraintExists(database, "pk_content_likes")).isTrue();
         assertThat(constraintExists(database, "pk_content_saves")).isTrue();
         assertThat(constraintExists(database, "pk_creator_follows")).isTrue();
         assertThat(constraintExists(database, "ck_creator_follows_no_self_follow")).isTrue();
+        assertThat(constraintExists(database, "uk_content_items_creator_upload_idempotency_key"))
+            .isTrue();
+        assertThat(constraintExists(database, "ck_content_items_lifecycle_fields")).isTrue();
+        assertThat(columnIsNullable(database, "content_items", "media_content_type")).isTrue();
+        assertThat(columnIsNullable(database, "content_items", "media_size_bytes")).isTrue();
+        assertThat(columnIsNullable(database, "content_items", "published_at")).isTrue();
+        assertThat(columnIsNullable(database, "content_items", "import_source_key")).isTrue();
       }
 
       List<String> schemaAfterFirstStartup = schemaFingerprint(database);
@@ -95,6 +104,8 @@ class DatabaseMigrationIT {
       insertLike(database, followerUserId, contentId);
       insertSave(database, followerUserId, contentId);
       insertFollow(database, followerUserId, creatorUserId);
+      insertReservedUpload(database, creatorUserId, "creator-upload-key");
+      insertFailedUpload(database, creatorUserId, "creator-failed-upload-key");
       assertThatThrownBy(() -> insertLike(database, followerUserId, contentId))
           .satisfies(throwable -> assertSqlState(throwable, "23505"));
       assertThatThrownBy(() -> insertSave(database, followerUserId, contentId))
@@ -126,6 +137,13 @@ class DatabaseMigrationIT {
               () ->
                   insertContent(
                       database, creatorUserId, "source-5", "PUBLISHED", "EDUCATION", 1L, 0L))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(() -> insertReservedUpload(database, creatorUserId, "creator-upload-key"))
+          .satisfies(throwable -> assertSqlState(throwable, "23505"));
+      assertThatThrownBy(() -> insertInvalidUploadingWithPublishedAt(database, creatorUserId))
+          .satisfies(throwable -> assertSqlState(throwable, "23514"));
+      assertThatThrownBy(
+              () -> insertInvalidPublishedUploadWithoutCompletion(database, creatorUserId))
           .satisfies(throwable -> assertSqlState(throwable, "23514"));
     }
   }
@@ -220,6 +238,27 @@ class DatabaseMigrationIT {
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
         return resultSet.getInt(1) == 1;
+      }
+    }
+  }
+
+  private static boolean columnIsNullable(
+      PostgreSQLContainer<?> database, String tableName, String columnName) throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                select is_nullable
+                from information_schema.columns
+                where table_schema = 'public'
+                  and table_name = ?
+                  and column_name = ?
+                """)) {
+      statement.setString(1, tableName);
+      statement.setString(2, columnName);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return "YES".equals(resultSet.getString(1));
       }
     }
   }
@@ -448,6 +487,139 @@ class DatabaseMigrationIT {
                 """)) {
       statement.setObject(1, followerUserId);
       statement.setObject(2, creatorUserId);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertReservedUpload(
+      PostgreSQLContainer<?> database, UUID creatorUserId, String idempotencyKey)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_items (
+                  id,
+                  creator_user_id,
+                  title,
+                  description,
+                  category,
+                  media_object_key,
+                  status,
+                  created_at,
+                  upload_idempotency_key,
+                  upload_started_at
+                ) values (
+                  ?, ?, 'Queued upload', 'Queued description', 'EDUCATION', ?, 'UPLOADING',
+                  current_timestamp, ?, current_timestamp
+                )
+                """)) {
+      UUID contentId = UUID.randomUUID();
+      statement.setObject(1, contentId);
+      statement.setObject(2, creatorUserId);
+      statement.setString(3, "content/uploads/" + contentId + ".mp4");
+      statement.setString(4, idempotencyKey);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertFailedUpload(
+      PostgreSQLContainer<?> database, UUID creatorUserId, String idempotencyKey)
+      throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_items (
+                  id,
+                  creator_user_id,
+                  title,
+                  description,
+                  category,
+                  media_object_key,
+                  status,
+                  created_at,
+                  upload_idempotency_key,
+                  upload_started_at,
+                  upload_completed_at,
+                  upload_failure_code,
+                  upload_failure_reason
+                ) values (
+                  ?, ?, 'Failed upload', 'Failed description', 'EDUCATION', ?, 'FAILED',
+                  current_timestamp, ?, current_timestamp, current_timestamp,
+                  'UNSUPPORTED_MEDIA_PROFILE', 'Uploaded video is not an accepted event MP4.'
+                )
+                """)) {
+      UUID contentId = UUID.randomUUID();
+      statement.setObject(1, contentId);
+      statement.setObject(2, creatorUserId);
+      statement.setString(3, "content/uploads/" + contentId + ".mp4");
+      statement.setString(4, idempotencyKey);
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertInvalidUploadingWithPublishedAt(
+      PostgreSQLContainer<?> database, UUID creatorUserId) throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_items (
+                  id,
+                  creator_user_id,
+                  title,
+                  description,
+                  category,
+                  media_object_key,
+                  status,
+                  created_at,
+                  published_at,
+                  upload_idempotency_key,
+                  upload_started_at
+                ) values (
+                  ?, ?, 'Invalid upload', 'Invalid description', 'EDUCATION', ?, 'UPLOADING',
+                  current_timestamp, current_timestamp, 'invalid-upload-key', current_timestamp
+                )
+                """)) {
+      UUID contentId = UUID.randomUUID();
+      statement.setObject(1, contentId);
+      statement.setObject(2, creatorUserId);
+      statement.setString(3, "content/uploads/" + contentId + ".mp4");
+      statement.executeUpdate();
+    }
+  }
+
+  private static void insertInvalidPublishedUploadWithoutCompletion(
+      PostgreSQLContainer<?> database, UUID creatorUserId) throws SQLException {
+    try (Connection connection = connection(database);
+        PreparedStatement statement =
+            connection.prepareStatement(
+                """
+                insert into content_items (
+                  id,
+                  creator_user_id,
+                  title,
+                  description,
+                  category,
+                  media_object_key,
+                  media_content_type,
+                  media_size_bytes,
+                  status,
+                  created_at,
+                  published_at,
+                  upload_idempotency_key,
+                  upload_started_at
+                ) values (
+                  ?, ?, 'Invalid published upload', 'Invalid description', 'EDUCATION', ?,
+                  'video/mp4', 1024, 'PUBLISHED', current_timestamp, current_timestamp,
+                  'invalid-published-upload-key', current_timestamp
+                )
+                """)) {
+      UUID contentId = UUID.randomUUID();
+      statement.setObject(1, contentId);
+      statement.setObject(2, creatorUserId);
+      statement.setString(3, "content/uploads/" + contentId + ".mp4");
       statement.executeUpdate();
     }
   }

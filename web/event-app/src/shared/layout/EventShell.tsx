@@ -12,6 +12,7 @@ export function EventShell({ children }: EventShellProps) {
   const { loading, signOut, user } = useAuthSession();
   const { state } = useBackendSession();
   const isReady = state.status === "ready";
+  const isCreator = isReady && state.account?.role === "CREATOR";
 
   async function handleSignOut() {
     await signOut();
@@ -28,6 +29,10 @@ export function EventShell({ children }: EventShellProps) {
         <nav className="top-nav" aria-label="Primary navigation">
           <NavLink to="/">Feed</NavLink>
           <NavLink to="/creators">Creators</NavLink>
+          {isReady ? <NavLink to="/saved">Saved</NavLink> : null}
+          {isReady ? <NavLink to="/liked">Liked</NavLink> : null}
+          {isCreator ? <NavLink to="/upload">Upload</NavLink> : null}
+          {isCreator ? <NavLink to="/uploads">My Uploads</NavLink> : null}
           {isReady ? (
             <NavLink to="/account">Account</NavLink>
           ) : null}

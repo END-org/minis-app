@@ -9,6 +9,27 @@
 - Firebase Admin service-account JSON stored outside the repository.
 - `ffprobe` from FFmpeg for curated media import.
 
+## Recommended Local Product Workflow
+
+From the repository root, copy the environment template, fill the local values, then run:
+
+```powershell
+Copy-Item .env.example .env
+.\scripts\local\start-dev.ps1
+```
+
+The helper validates Compose, starts or reuses PostgreSQL and MinIO, runs the one-shot bucket initializer, starts the local Spring Boot profile and React app on their configured strict ports, and waits for backend plus browser readiness. It records only helper-launched PIDs and logs in ignored `.minis-local/`.
+
+Use these companion commands from the repository root:
+
+```powershell
+.\scripts\local\status-dev.ps1
+.\scripts\local\verify-all.ps1
+.\scripts\local\stop-dev.ps1
+```
+
+`stop-dev.ps1` stops only helper-tracked backend/React process trees and runs ordinary `docker compose ... down`; it never deletes PostgreSQL or MinIO named volumes.
+
 ## Local Infrastructure
 
 Copy the root environment template and fill only local values:
@@ -120,11 +141,17 @@ MINIS_EVENT_ADMIN_BOOTSTRAP_FIREBASE_UIDS=<firebase-uid-1>,<firebase-uid-2>
 
 Do not use email addresses for this allowlist, and do not enable it outside `local` or `demo`.
 
+## Creator Upload
+
+The normal event product path is Creator sign-in, `/upload`, publication, and the public feed. Only an active backend-owned `CREATOR` role can submit `POST /api/v1/content` with multipart `metadata` JSON plus a `video` part and an `Idempotency-Key` header. The backend owns creator attribution, content ID, object key, temporary path, profile validation, and final publication.
+
+The accepted file is a non-empty MP4/H.264 vertical video that satisfies the profile in `media-and-upload.md`: 200 MB maximum, 90 seconds maximum, 720-1080 by 1280-1920 pixels, 30 fps maximum, and optional AAC audio. The browser checks basic file selection constraints first; the backend rechecks size, filename, MIME type, MP4 signature, probe output, and media profile before publication.
+
+Creator routes are `/upload` and `/uploads`. My Uploads is private, bounded cursor pagination and shows `UPLOADING`, `PUBLISHED`, `FAILED`, or `REMOVED` lifecycle state. A failed idempotency key is terminal: begin a new logical attempt with a new key. Retrying a request whose successful response was lost uses the same key and returns the original published result.
+
 ## Curated Media Import
 
-The event feed is populated by a private untracked manifest and local/demo MinIO. The importer
-requires `ffprobe` and only accepts the bounded event MP4/H.264/AAC vertical profile described in
-`media-and-upload.md`.
+The Phase 4 importer remains an explicit fallback for recovery/demo media. It is not needed for the normal creator browser upload path. The importer requires `ffprobe` and only accepts the bounded event MP4/H.264/AAC vertical profile described in `media-and-upload.md`.
 
 From `backend/minis-backend`, after PostgreSQL and MinIO are healthy and the root `.env` has been
 exported into the process:
@@ -168,9 +195,7 @@ npm run build
 
 ## Flyway and Old Volumes
 
-Flyway creates and upgrades the identity, creator-profile, event-admin audit, content metadata, and
-social relationship schema. A valid V1-V4 local database upgrades automatically to V5, after which
-Hibernate validates the migrated schema. Existing rows and named Docker volumes are preserved.
+Flyway creates and upgrades the identity, creator-profile, event-admin audit, content metadata, social relationship, and controlled upload lifecycle schema. A valid V1-V5 local database upgrades automatically to V6, after which Hibernate validates the migrated schema. Existing rows and named Docker volumes are preserved.
 
 After backend startup, inspect migration history without changing it:
 

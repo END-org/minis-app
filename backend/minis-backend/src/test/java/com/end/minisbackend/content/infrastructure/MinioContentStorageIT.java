@@ -40,7 +40,7 @@ class MinioContentStorageIT {
       Files.writeString(media, "minis-media-test-data");
 
       storage.ensureBucket();
-      storage.uploadImportedObject(
+      storage.uploadObject(
           "content/imports/storage-test.mp4", media, "video/mp4", Files.size(media));
       SignedReadUrl signedReadUrl = storage.signedReadUrl("content/imports/storage-test.mp4");
       HttpResponse<String> response =

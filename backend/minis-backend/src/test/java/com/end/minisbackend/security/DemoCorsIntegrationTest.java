@@ -52,7 +52,10 @@ class DemoCorsIntegrationTest {
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
                 .header(
                     HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
-                    HttpHeaders.AUTHORIZATION + ", " + CorrelationId.HEADER_NAME))
+                    HttpHeaders.AUTHORIZATION
+                        + ", "
+                        + CorrelationId.HEADER_NAME
+                        + ", Idempotency-Key"))
         .andExpect(status().isOk())
         .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, DEMO_ORIGIN))
         .andExpect(
@@ -64,6 +67,10 @@ class DemoCorsIntegrationTest {
             header()
                 .string(
                     HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
-                    containsString(CorrelationId.HEADER_NAME)));
+                    containsString(CorrelationId.HEADER_NAME)))
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, containsString("Idempotency-Key")));
   }
 }

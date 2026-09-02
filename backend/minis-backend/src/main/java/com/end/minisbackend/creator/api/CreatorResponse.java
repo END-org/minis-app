@@ -10,5 +10,6 @@ public record CreatorResponse(
     String bio,
     String avatarUrl,
     boolean verified,
+    boolean following,
     Instant createdAt,
     Instant updatedAt) {}

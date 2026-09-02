@@ -139,7 +139,11 @@ function contentFixture(id: string, title: string): ContentResponse {
       sizeBytes: 1024,
       url: `http://localhost:9000/minis-event-media/content/imports/${id}.mp4`,
     },
+    following: false,
+    likeCount: 0,
+    liked: false,
     publishedAt: "2026-07-17T12:00:00Z",
+    saved: false,
     title,
   };
 }

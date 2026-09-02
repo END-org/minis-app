@@ -49,6 +49,13 @@ class ContentPersistenceAdapter implements ContentCommandStore, ContentQueryStor
   }
 
   @Override
+  public List<ContentItem> findStaleUploadingItemsBefore(
+      java.time.Instant startedBefore, int limit) {
+    return repository.findByStatusAndUploadStartedAtBeforeOrderByUploadStartedAtAscIdAsc(
+        ContentStatus.UPLOADING, startedBefore, PageRequest.of(0, limit));
+  }
+
+  @Override
   public ContentItem saveAndFlush(ContentItem contentItem) {
     return repository.saveAndFlush(contentItem);
   }

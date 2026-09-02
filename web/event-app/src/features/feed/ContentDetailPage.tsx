@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { toApiFailureView } from "../../core/errors/apiError";
 import { ApiFailureNotice } from "../../shared/components/ApiFailureNotice";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { ContentSocialActions } from "../social/ContentSocialActions";
 import { FeedVideo } from "./FeedVideo";
 import { useContentQuery } from "./feedQueries";
 
@@ -50,6 +51,7 @@ export function ContentDetailPage() {
             {content.data.creator.displayName}
           </Link>
         </p>
+        <ContentSocialActions content={content.data} />
       </div>
     </section>
   );

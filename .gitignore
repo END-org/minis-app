@@ -46,3 +46,6 @@ google-application-credentials*.json
 # Logs
 *.log
 logs/
+
+# Local development helper runtime files
+.minis-local/

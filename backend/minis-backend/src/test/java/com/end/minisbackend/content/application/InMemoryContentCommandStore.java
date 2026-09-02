@@ -2,6 +2,7 @@ package com.end.minisbackend.content.application;
 
 import com.end.minisbackend.content.domain.ContentItem;
 import com.end.minisbackend.content.domain.ContentStatus;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,20 @@ final class InMemoryContentCommandStore implements ContentCommandStore {
   }
 
   @Override
+  public List<ContentItem> findStaleUploadingItemsBefore(Instant startedBefore, int limit) {
+    return byId.values().stream()
+        .filter(item -> item.status() == ContentStatus.UPLOADING)
+        .filter(
+            item ->
+                item.uploadStartedAt() != null && item.uploadStartedAt().isBefore(startedBefore))
+        .sorted(
+            java.util.Comparator.comparing(ContentItem::uploadStartedAt)
+                .thenComparing(ContentItem::id))
+        .limit(limit)
+        .toList();
+  }
+
+  @Override
   public ContentItem saveAndFlush(ContentItem contentItem) {
     if (failNextSaveAfterConcurrentCommit) {
       failNextSaveAfterConcurrentCommit = false;
@@ -53,7 +68,9 @@ final class InMemoryContentCommandStore implements ContentCommandStore {
       throw new org.springframework.dao.DataIntegrityViolationException("simulated failure");
     }
     byId.put(contentItem.id(), contentItem);
-    bySourceKey.put(contentItem.importSourceKey(), contentItem);
+    if (contentItem.importSourceKey() != null) {
+      bySourceKey.put(contentItem.importSourceKey(), contentItem);
+    }
     return contentItem;
   }
 

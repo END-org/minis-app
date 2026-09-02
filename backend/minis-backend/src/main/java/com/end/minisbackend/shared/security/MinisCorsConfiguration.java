@@ -15,6 +15,8 @@ import org.springframework.web.filter.CorsFilter;
 
 @Configuration
 class MinisCorsConfiguration {
+  private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
   @Bean
   CorsConfigurationSource minisCorsConfigurationSource(MinisHttpProperties properties) {
     CorsConfiguration configuration = new CorsConfiguration();
@@ -28,7 +30,11 @@ class MinisCorsConfiguration {
             HttpMethod.DELETE.name(),
             HttpMethod.OPTIONS.name()));
     configuration.setAllowedHeaders(
-        List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, CorrelationId.HEADER_NAME));
+        List.of(
+            HttpHeaders.AUTHORIZATION,
+            HttpHeaders.CONTENT_TYPE,
+            CorrelationId.HEADER_NAME,
+            IDEMPOTENCY_KEY_HEADER));
     configuration.setExposedHeaders(List.of(CorrelationId.HEADER_NAME));
     configuration.setAllowCredentials(false);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

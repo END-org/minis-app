@@ -80,8 +80,7 @@ class MinioContentStorage implements ContentStorage {
   }
 
   @Override
-  public void uploadImportedObject(
-      String objectKey, Path sourceFile, String contentType, long sizeBytes) {
+  public void uploadObject(String objectKey, Path sourceFile, String contentType, long sizeBytes) {
     try (InputStream inputStream = Files.newInputStream(sourceFile)) {
       objectClient.putObject(
           PutObjectArgs.builder().bucket(properties.bucket()).object(objectKey).stream(

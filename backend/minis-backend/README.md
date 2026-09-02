@@ -4,9 +4,9 @@ Spring Boot modular monolith backend for the MINIS mobile-first mini-film platfo
 
 ## Current Baseline
 
-The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, imports curated event media, stores media objects in MinIO, exposes public feed/content/category APIs with signed read URLs, supports ADMIN-only content removal, supports backend likes/saves/creator follows plus private liked/saved collections and authenticated viewer social state, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
+The current backend slice verifies Firebase ID tokens, rejects unverified password-provider identities before bootstrap, bootstraps a local MINIS user, exposes `/api/v1/auth/bootstrap` and `/api/v1/me`, supports creator profiles plus minimal event-admin preparation APIs, accepts controlled creator-only multipart event upload, retains curated event import as a fallback, stores media objects in MinIO, exposes public feed/content/category APIs with signed read URLs, supports ADMIN-only content removal, supports backend likes/saves/creator follows plus private liked/saved collections and authenticated viewer social state, returns the shared JSON API error contract, propagates `X-Correlation-ID`, denies local diagnostics/dev routes outside the `local` and `demo` profiles, and creates the schema through Flyway.
 
-Product features such as live media upload, transcoding, thumbnails, comments, reports, moderation queues, notifications, analytics, chat, frontend social UI, and complete user management are not implemented in this baseline.
+Deferred product features include transcoding, thumbnails, subtitles, comments, reports, moderation queues, notifications, analytics, chat, direct-to-cloud/resumable upload, provider-specific multipart orchestration, CDN migration, and complete user management.
 
 ## Prerequisites
 
@@ -99,6 +99,17 @@ Run the local application only after PostgreSQL is available and `GOOGLE_APPLICA
 plus Firebase Web SDK environment variables are set in the root `.env`, shell, or IDE run
 configuration.
 
+For the normal Windows product workflow, return to the repository root and use:
+
+```powershell
+.\scripts\local\start-dev.ps1
+.\scripts\local\status-dev.ps1
+.\scripts\local\verify-all.ps1
+.\scripts\local\stop-dev.ps1
+```
+
+These helpers load the ignored root `.env` without echoing values, track only the backend/React processes they launch, and preserve local PostgreSQL/MinIO named volumes on normal shutdown.
+
 The demo compose topology also requires explicit `DEMO_POSTGRES_PASSWORD`, `DEMO_MINIO_ROOT_USER`, `DEMO_MINIO_ROOT_PASSWORD`, `FIREBASE_PROJECT_ID`, and `GOOGLE_APPLICATION_CREDENTIALS` values.
 
 Content storage values:
@@ -113,6 +124,10 @@ MINIS_CONTENT_STORAGE_READ_TIMEOUT=PT30S
 MINIS_CONTENT_STORAGE_WRITE_TIMEOUT=PT2M
 MINIS_CONTENT_STORAGE_AUTO_CREATE_BUCKET=false
 MINIS_CONTENT_IMPORTER_FFPROBE_PATH=ffprobe
+MINIS_CONTENT_UPLOAD_MAX_FILE_SIZE=200MB
+MINIS_CONTENT_UPLOAD_MAX_REQUEST_SIZE=205MB
+MINIS_CONTENT_UPLOAD_TEMP_DIR=
+MINIS_CONTENT_UPLOAD_STALE_AGE=PT30M
 ```
 
 The demo profile uses `http://minio:9000` internally and `http://localhost:9002` as the default
@@ -142,7 +157,7 @@ MINIS_PROD_ALLOWED_ORIGINS=
 
 The local and demo variables are intentionally separate. A demo origin must not override the local
 Vite origin. CORS credentials are disabled; allowed methods and headers are bounded to the API
-needs, including `Authorization`, `Content-Type`, and `X-Correlation-ID`.
+needs, including `Authorization`, `Content-Type`, `X-Correlation-ID`, and `Idempotency-Key`.
 
 ## Local URLs
 
@@ -175,16 +190,26 @@ Creator/admin rehearsal can then verify:
 
 1. Open `/admin` as an event admin.
 2. Grant a prepared viewer the creator role with a public slug and display name.
-3. Open `/creators` as a guest and confirm the active creator is public.
-4. Suspend the creator and confirm the public slug is no longer visible.
-5. Reactivate or revoke as needed for event preparation.
+3. Sign in as that active creator and upload an accepted MP4 through `/upload`.
+4. Confirm the resulting `PUBLISHED` video appears in `/uploads`, the public feed, and creator content.
+5. As a viewer, like, save, and follow; confirm `/liked` and `/saved` survive a refresh.
+6. Open `/creators` as a guest and confirm the active creator is public.
+7. Suspend the creator and confirm the public slug is no longer visible and new upload attempts are rejected.
+8. Reactivate or revoke as needed for event preparation.
 
 The static page at `/auth-test/index.html` is only a diagnostics launcher. It does not contain Firebase sign-in logic, token display, or credential handling.
 
+## Controlled Creator Upload
+
+Active backend-provisioned `CREATOR` accounts can send `POST /api/v1/content` as multipart form data with JSON `metadata`, one `video` part, and an `Idempotency-Key` header. The request is authorized before media is accepted. The backend generates the content/object identities and streams the upload through a server-owned temporary file, then validates the 200 MB MP4/H.264 vertical profile using the existing bounded `ffprobe` integration.
+
+The row starts as `UPLOADING`. On successful MinIO storage and a short final PostgreSQL transition, it becomes `PUBLISHED`; a terminal validation/storage/publication problem records safe `FAILED` metadata. `UPLOADING` and `FAILED` are excluded from public content queries. `GET /api/v1/me/uploads?cursor=&size=` is owner-only, bounded to a maximum page size of 30, and returns safe lifecycle state plus a public content projection only for published rows.
+
+The `Idempotency-Key` is unique per creator. A successful retry with the same matching key returns the original published upload. An in-progress key returns `UPLOAD_IN_PROGRESS`; a failed key returns `UPLOAD_ALREADY_FAILED` and requires a new key; different metadata for the same key conflicts. The service reserves/finalizes in short database transactions and compensates an uploaded object when final publication fails unless a published row already owns it. Reconciliation marks stale uploads older than `MINIS_CONTENT_UPLOAD_STALE_AGE` as failed before checking published-object consistency.
+
 ## Curated Media Import
 
-The importer is explicit command mode only; it is not a public seed endpoint and does not run during
-normal startup.
+The importer is explicit command mode only; it is not a public seed endpoint and does not run during normal startup. It remains a recovery/demo path and is no longer the normal browser upload workflow.
 
 From `backend/minis-backend` after exporting the root `.env` into the process:
 
@@ -204,9 +229,6 @@ persistence fails and no committed row owns that object. Reconciliation reads pu
 bounded batches. See `../../docs/media-and-upload.md` for the full policy.
 
 ## Social Interaction APIs
-
-Live creator upload is not part of this implementation. Test media still enters the system through
-the accepted Phase 4 curated importer.
 
 Relationship writes require a verified Firebase bearer token mapped to an active provisioned local
 account. `VIEWER`, `CREATOR`, and `ADMIN` accounts may use normal user interactions when active.
@@ -267,6 +289,7 @@ Flyway is the source of truth for the physical schema. Current migrations:
 - `src/main/resources/db/migration/V3__create_content_items.sql`
 - `src/main/resources/db/migration/V4__add_content_read_and_reconciliation_indexes.sql`
 - `src/main/resources/db/migration/V5__create_social_interaction_relationships.sql`
+- `src/main/resources/db/migration/V6__add_controlled_creator_uploads.sql`
 
 - `local`: Flyway migrates the local PostgreSQL database and Hibernate validates it.
 - `test`: Flyway migrates PostgreSQL Testcontainers databases and Hibernate validates them.

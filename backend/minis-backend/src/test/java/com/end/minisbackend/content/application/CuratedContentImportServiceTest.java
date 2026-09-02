@@ -233,6 +233,7 @@ class CuratedContentImportServiceTest {
     CreatorProfileQueryService creatorService =
         new CreatorProfileQueryService(
             new InMemoryCreatorProfileStore(creatorUserId, "event-creator"),
+            new NoopCreatorFollowStore(),
             new TestTransactionManager());
     return new CuratedContentImportService(
         store,

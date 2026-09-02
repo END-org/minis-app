@@ -32,7 +32,8 @@ class ContentReconciliationRunner implements ApplicationRunner {
         reconciliationService.reconcile(
             args.getOptionValues("minis.content.reconciliation.run-id") == null
                 ? null
-                : args.getOptionValues("minis.content.reconciliation.run-id").get(0));
+                : args.getOptionValues("minis.content.reconciliation.run-id").get(0),
+            properties.staleAge());
     SpringApplication.exit(context, summary::exitCode);
   }
 }

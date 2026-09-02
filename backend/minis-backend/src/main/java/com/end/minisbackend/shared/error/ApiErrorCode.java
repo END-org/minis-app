@@ -14,6 +14,14 @@ public enum ApiErrorCode {
   ACCESS_DENIED(HttpStatus.FORBIDDEN, "Access is denied."),
   RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Resource was not found."),
   RESOURCE_CONFLICT(HttpStatus.CONFLICT, "Resource conflict."),
+  UPLOAD_IN_PROGRESS(
+      HttpStatus.CONFLICT, "Upload is already in progress for this idempotency key."),
+  UPLOAD_ALREADY_FAILED(
+      HttpStatus.CONFLICT,
+      "Upload already failed. Start a new upload attempt with a new idempotency key."),
+  UPLOAD_VALIDATION_FAILED(
+      HttpStatus.BAD_REQUEST, "Uploaded video does not match the accepted MINIS event profile."),
+  UPLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded video exceeds the MINIS event limit."),
   VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Request validation failed."),
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "An internal error occurred.");
 

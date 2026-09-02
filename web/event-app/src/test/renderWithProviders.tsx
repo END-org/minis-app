@@ -9,17 +9,27 @@ import {
   AuthSessionContext,
   type AuthSessionContextValue,
 } from "../core/auth/AuthSessionContext";
-import { BackendSessionProvider } from "../features/account/BackendSessionContext";
+import {
+  BackendSessionContext,
+  BackendSessionProvider,
+  type BackendSessionContextValue,
+} from "../features/account/BackendSessionContext";
 
 interface RenderOptions {
   readonly apiClient?: ApiClient;
   readonly auth?: Partial<AuthSessionContextValue>;
+  readonly backendSession?: BackendSessionContextValue;
   readonly route?: string;
 }
 
 export function renderWithProviders(
   ui: ReactElement,
-  { apiClient = createNoopApiClient(), auth = {}, route = "/" }: RenderOptions = {},
+  {
+    apiClient = createNoopApiClient(),
+    auth = {},
+    backendSession,
+    route = "/",
+  }: RenderOptions = {},
 ): RenderResult {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -32,9 +42,15 @@ export function renderWithProviders(
     <QueryClientProvider client={queryClient}>
       <AuthSessionContext.Provider value={createAuthSession(auth)}>
         <ApiClientContext.Provider value={apiClient}>
-          <BackendSessionProvider>
-            <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
-          </BackendSessionProvider>
+          {backendSession ? (
+            <BackendSessionContext.Provider value={backendSession}>
+              <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+            </BackendSessionContext.Provider>
+          ) : (
+            <BackendSessionProvider>
+              <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+            </BackendSessionProvider>
+          )}
         </ApiClientContext.Provider>
       </AuthSessionContext.Provider>
     </QueryClientProvider>,

@@ -7,6 +7,7 @@ export interface CreatorResponse {
   readonly bio?: string;
   readonly avatarUrl?: string;
   readonly verified: boolean;
+  readonly following: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -22,14 +23,28 @@ export const creatorsQueryKey = ["creators"] as const;
 
 export function getCreators(client: ApiClient): Promise<CreatorDirectoryResponse> {
   return client.request<CreatorDirectoryResponse>("/api/v1/creators", {
-    auth: "none",
+    auth: "optional",
     method: "GET",
   });
 }
 
 export function getCreator(client: ApiClient, slug: string): Promise<CreatorResponse> {
   return client.request<CreatorResponse>(`/api/v1/creators/${encodeURIComponent(slug)}`, {
-    auth: "none",
+    auth: "optional",
     method: "GET",
   });
+}
+
+export function setCreatorFollow(
+  client: ApiClient,
+  slug: string,
+  following: boolean,
+): Promise<void> {
+  return client
+    .request<undefined>(`/api/v1/creators/${encodeURIComponent(slug)}/follow`, {
+      auth: "required",
+      method: following ? "PUT" : "DELETE",
+      retryOnUnauthorized: false,
+    })
+    .then(() => undefined);
 }

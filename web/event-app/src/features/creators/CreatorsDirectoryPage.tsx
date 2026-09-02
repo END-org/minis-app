@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { toApiFailureView } from "../../core/errors/apiError";
 import { ApiFailureNotice } from "../../shared/components/ApiFailureNotice";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { CreatorFollowButton } from "../social/CreatorFollowButton";
 import { useCreatorsQuery } from "./creatorQueries";
 
 export function CreatorsDirectoryPage() {
@@ -50,6 +51,7 @@ export function CreatorsDirectoryPage() {
                 {creator.verified ? <strong>Verified</strong> : null}
               </Link>
               {creator.bio ? <p>{creator.bio}</p> : null}
+              <CreatorFollowButton creator={creator} />
             </li>
           ))}
         </ul>

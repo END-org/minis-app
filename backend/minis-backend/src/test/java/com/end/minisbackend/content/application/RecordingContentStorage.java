@@ -22,8 +22,7 @@ final class RecordingContentStorage implements ContentStorage {
   }
 
   @Override
-  public void uploadImportedObject(
-      String objectKey, Path sourceFile, String contentType, long sizeBytes) {
+  public void uploadObject(String objectKey, Path sourceFile, String contentType, long sizeBytes) {
     uploadCount++;
     if (failUpload) {
       throw new ContentStorageException("simulated upload failure");
