@@ -4,10 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.end.minisbackend.TestIdentities;
 import com.end.minisbackend.TestTransactionManager;
-import com.end.minisbackend.content.domain.ContentCategory;
-import com.end.minisbackend.creator.application.CreatorFollowStore;
-import com.end.minisbackend.creator.application.CreatorProfileQueryService;
-import com.end.minisbackend.identity.application.MinisPrincipal;
+import com.end.minisbackend.content.application.model.feed.ContentCursor;
+import com.end.minisbackend.content.application.model.feed.ContentPage;
+import com.end.minisbackend.content.application.model.feed.PersonalContentView;
+import com.end.minisbackend.content.application.model.feed.PublishedContentView;
+import com.end.minisbackend.content.application.model.interaction.ContentInteractionCursor;
+import com.end.minisbackend.content.application.port.ContentInteractionStore;
+import com.end.minisbackend.content.application.port.ContentQueryStore;
+import com.end.minisbackend.content.application.service.feed.PublicContentAssembler;
+import com.end.minisbackend.content.application.service.feed.PublicContentQueryService;
+import com.end.minisbackend.content.domain.enums.ContentCategory;
+import com.end.minisbackend.creator.application.port.CreatorFollowStore;
+import com.end.minisbackend.creator.application.service.read.CreatorProfileQueryService;
+import com.end.minisbackend.identity.application.model.MinisPrincipal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -85,12 +94,12 @@ class PublicContentQueryServiceTest {
     return new PublicContentQueryService(
         contentQueryStore,
         contentInteractionStore,
-        new RecordingContentStorage(),
         new CreatorProfileQueryService(
             new InMemoryCreatorProfileStore(CREATOR_A, "creator-a"),
             creatorFollowStore,
             new TestTransactionManager()),
-        creatorFollowStore,
+        new PublicContentAssembler(
+            contentInteractionStore, new RecordingContentStorage(), creatorFollowStore),
         new TestTransactionManager());
   }
 

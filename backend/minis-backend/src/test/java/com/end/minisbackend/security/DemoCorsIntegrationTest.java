@@ -7,12 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.end.minisbackend.admin.application.EventAdminService;
-import com.end.minisbackend.identity.application.FirebaseTokenVerifier;
-import com.end.minisbackend.identity.application.LocalUserIdentityGateway;
-import com.end.minisbackend.identity.application.UserAccountProvisioningGateway;
+import com.end.minisbackend.admin.application.service.AccountStatusAdministrationService;
+import com.end.minisbackend.admin.application.service.AdminUserQueryService;
+import com.end.minisbackend.admin.application.service.CreatorRoleAdministrationService;
+import com.end.minisbackend.admin.application.service.CreatorVerificationAdministrationService;
+import com.end.minisbackend.identity.application.port.FirebaseTokenVerifier;
+import com.end.minisbackend.identity.application.port.LocalUserIdentityGateway;
+import com.end.minisbackend.identity.application.port.UserAccountProvisioningGateway;
 import com.end.minisbackend.shared.security.CorrelationId;
-import com.end.minisbackend.user.application.CurrentUserService;
+import com.end.minisbackend.user.application.service.CurrentUserService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,12 @@ class DemoCorsIntegrationTest {
   @MockitoBean private LocalUserIdentityGateway localUserIdentityGateway;
   @MockitoBean private UserAccountProvisioningGateway userAccountProvisioningGateway;
   @MockitoBean private CurrentUserService currentUserService;
-  @MockitoBean private EventAdminService eventAdminService;
+  @MockitoBean private AdminUserQueryService adminUserQueryService;
+  @MockitoBean private CreatorRoleAdministrationService creatorRoleAdministrationService;
+  @MockitoBean private AccountStatusAdministrationService accountStatusAdministrationService;
+
+  @MockitoBean
+  private CreatorVerificationAdministrationService creatorVerificationAdministrationService;
 
   @BeforeEach
   void setUp() {

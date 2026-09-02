@@ -18,10 +18,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.end.minisbackend.TestIdentities;
-import com.end.minisbackend.content.application.ContentStorage;
-import com.end.minisbackend.content.application.MediaInspection;
-import com.end.minisbackend.content.application.MediaProbe;
-import com.end.minisbackend.content.application.SignedReadUrl;
+import com.end.minisbackend.content.application.model.feed.SignedReadUrl;
+import com.end.minisbackend.content.application.port.ContentStorage;
+import com.end.minisbackend.content.application.port.MediaProbe;
+import com.end.minisbackend.content.domain.model.media.MediaInspection;
 import com.end.minisbackend.identity.infrastructure.FakeFirebaseTokenVerifier;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

@@ -5,10 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.end.minisbackend.TestIdentities;
 import com.end.minisbackend.TestTransactionManager;
-import com.end.minisbackend.content.domain.ContentCategory;
-import com.end.minisbackend.content.domain.ContentItem;
-import com.end.minisbackend.content.domain.ContentStatus;
-import com.end.minisbackend.identity.application.MinisPrincipal;
+import com.end.minisbackend.content.application.service.administration.ContentAdministrationService;
+import com.end.minisbackend.content.domain.enums.ContentCategory;
+import com.end.minisbackend.content.domain.enums.ContentStatus;
+import com.end.minisbackend.content.domain.model.ContentItem;
+import com.end.minisbackend.identity.application.model.MinisPrincipal;
 import com.end.minisbackend.shared.error.ApiException;
 import java.time.Clock;
 import java.time.Instant;

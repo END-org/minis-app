@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { ApiClientProvider } from "../core/api/ApiClientContext";
-import { AuthSessionProvider } from "../core/auth/AuthSessionContext";
-import { BackendSessionProvider } from "../features/account/BackendSessionContext";
+import { ApiClientProvider } from "../core/api/ApiClientProvider";
+import { AuthSessionProvider } from "../core/auth/AuthSessionProvider";
+import { BackendSessionProvider } from "../features/account/BackendSessionProvider";
 
 interface AppProvidersProps {
   readonly children: ReactNode;

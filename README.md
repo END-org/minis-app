@@ -81,4 +81,4 @@ Windows PowerShell:
 .\mvnw.cmd --batch-mode --no-transfer-progress verify
 ```
 
-See `AGENTS.md` for repository-local engineering rules, `docs/getting-started.md` for local setup, `docs/authentication.md` for role/account policy, `docs/media-and-upload.md` for the media path, `docs/api-handoff.md` for API behavior, `docs/deployment.md` for the demo topology, `backend/minis-backend/README.md` for backend setup, and `web/event-app/README.md` for the React event client.
+See `AGENTS.md` for repository-local engineering rules, `docs/architecture.md` for the implemented source structure, `docs/getting-started.md` for local setup, `docs/authentication.md` for role/account policy, `docs/media-and-upload.md` for the media path, `docs/api-handoff.md` for API behavior, `docs/deployment.md` for the demo topology, `backend/minis-backend/README.md` for backend setup, and `web/event-app/README.md` for the React event client.

@@ -11,7 +11,9 @@
 ## Architecture
 
 - Keep the backend a modular monolith. Do not introduce microservices, Kafka, RabbitMQ, Redis, Elasticsearch, GraphQL, event sourcing, CQRS infrastructure, or plugin frameworks.
-- Use package-by-feature: `api`, `application`, `domain`, and `infrastructure` packages only where real code belongs.
+- Use package-by-feature: `api`, `application`, `domain`, and `infrastructure` packages only where real code belongs. Add responsibility subpackages only when a feature has enough real complexity to justify them; do not create empty structural packages.
+- For established features, use `api/controller`, `api/dto`, and `api/mapper`; `application/service`, `application/port`, and `application/model`; `domain/model`, `domain/enums`, and `domain/policy`; and focused infrastructure packages such as `repository`, `config`, `storage`, `media`, `firebase`, or `security`. Group DTOs and services by capability when that makes navigation clearer.
+- Preserve package-private production types when a separate package would expose an internal implementation only for folder symmetry. Test packages should mirror production packages where that does not require broadening package-private test fixtures.
 - Do not create global controller, service, repository, entity, DTO, mapper, helper, or utility packages for unrelated features.
 - Cross-feature code must use narrow application interfaces, explicit queries, or explicit ports. Do not inject another feature's internal repository.
 - `shared` is for small cross-cutting primitives only: error contracts, correlation IDs, security plumbing, configuration, and similar infrastructure.
@@ -40,7 +42,7 @@
 - Controllers may only map HTTP, validate/deserialise requests, extract the authenticated principal, delegate to application services, map responses, and select HTTP status/headers.
 - Controllers must not contain business rules, repository calls, JPA mutation, transaction boundaries, Firebase calls, MinIO calls, object-key generation, or authorization based only on request data.
 - Never return JPA entities from controllers.
-- Place feature DTOs in the owning feature's API package unless the number of contracts justifies request/response subpackages.
+- Keep API controllers in `api/controller`, contracts in `api/dto`, and HTTP response mapping in `api/mapper` for substantial features. Use capability subpackages such as `dto/feed` or `dto/upload` when they improve discovery.
 - Do not expose Firebase UIDs, tokens, MinIO credentials, raw private object keys, stack traces, internal exception names, or private audit details.
 
 ## Transactions and Persistence
@@ -66,13 +68,13 @@
 
 ## Uploads and External I/O
 
-- MinIO is the intended object store, but upload/product media features are not implemented in the baseline.
-- Future upload work must authorize before accepting data, generate object keys server-side, validate size/type/signature, reject empty files, bound probes/timeouts, compensate or record partial failures, and reconcile abandoned rows/objects.
+- MinIO is the object store for controlled creator uploads and curated recovery/demo imports.
+- Upload code must authorize before accepting data, generate object keys server-side, validate size/type/signature, reject empty files, bound probes/timeouts, compensate or record partial failures, and reconcile abandoned rows/objects.
 - Never concatenate untrusted values into shell commands.
 
 ## React Event Client
 
-- When added, use React, strict TypeScript, Vite, React Router, TanStack Query, Firebase Web SDK, Vitest, React Testing Library, and npm with one lockfile.
+- The event client uses React, strict TypeScript, Vite, React Router, TanStack Query, Firebase Web SDK, Vitest, React Testing Library, and npm with one lockfile.
 - Keep server state in TanStack Query and centralize API base URL, token attachment, token refresh, correlation ID extraction, API error parsing, 401 handling, and 403 handling.
 - Do not introduce Redux or another global state library without proven need.
 

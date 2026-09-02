@@ -5,13 +5,34 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.end.minisbackend.TestIdentities;
 import com.end.minisbackend.TestTransactionManager;
-import com.end.minisbackend.content.domain.ContentCategory;
-import com.end.minisbackend.content.domain.ContentItem;
-import com.end.minisbackend.content.domain.ContentStatus;
-import com.end.minisbackend.creator.application.CreatorFollowStore;
-import com.end.minisbackend.creator.application.CreatorProfileQueryService;
-import com.end.minisbackend.creator.application.CreatorProfileStore;
-import com.end.minisbackend.identity.application.MinisPrincipal;
+import com.end.minisbackend.content.application.model.feed.ContentCursor;
+import com.end.minisbackend.content.application.model.feed.PersonalContentView;
+import com.end.minisbackend.content.application.model.feed.PublishedContentView;
+import com.end.minisbackend.content.application.model.interaction.ContentInteractionCursor;
+import com.end.minisbackend.content.application.model.upload.ContentUploadCursor;
+import com.end.minisbackend.content.application.model.upload.ContentUploadSubmission;
+import com.end.minisbackend.content.application.model.upload.ContentUploadView;
+import com.end.minisbackend.content.application.model.upload.UploadContentCommand;
+import com.end.minisbackend.content.application.port.ContentInteractionStore;
+import com.end.minisbackend.content.application.port.ContentQueryStore;
+import com.end.minisbackend.content.application.port.ContentUploadSettings;
+import com.end.minisbackend.content.application.port.ContentUploadStore;
+import com.end.minisbackend.content.application.port.MediaProbe;
+import com.end.minisbackend.content.application.port.UploadVideoSource;
+import com.end.minisbackend.content.application.service.feed.PublicContentAssembler;
+import com.end.minisbackend.content.application.service.feed.PublicContentQueryService;
+import com.end.minisbackend.content.application.service.upload.ContentUploadQueryService;
+import com.end.minisbackend.content.application.service.upload.ContentUploadService;
+import com.end.minisbackend.content.application.service.upload.UploadMediaValidator;
+import com.end.minisbackend.content.domain.enums.ContentCategory;
+import com.end.minisbackend.content.domain.enums.ContentStatus;
+import com.end.minisbackend.content.domain.model.ContentItem;
+import com.end.minisbackend.content.domain.model.media.MediaInspection;
+import com.end.minisbackend.content.domain.policy.EventMediaProfilePolicy;
+import com.end.minisbackend.creator.application.port.CreatorFollowStore;
+import com.end.minisbackend.creator.application.port.CreatorProfileStore;
+import com.end.minisbackend.creator.application.service.read.CreatorProfileQueryService;
+import com.end.minisbackend.identity.application.model.MinisPrincipal;
 import com.end.minisbackend.shared.error.ApiErrorCode;
 import com.end.minisbackend.shared.error.ApiException;
 import java.io.IOException;
@@ -268,9 +289,9 @@ class ContentUploadServiceTest {
         new PublicContentQueryService(
             new UploadBackedContentQueryStore(uploadStore),
             new EmptyContentInteractionStore(),
-            storage,
             creatorProfileQueryService,
-            creatorFollowStore,
+            new PublicContentAssembler(
+                new EmptyContentInteractionStore(), storage, creatorFollowStore),
             TRANSACTION_MANAGER);
     ContentUploadQueryService uploadQueryService =
         new ContentUploadQueryService(uploadStore, publicContentQueryService, TRANSACTION_MANAGER);
@@ -278,9 +299,10 @@ class ContentUploadServiceTest {
         uploadStore,
         creatorProfileStore,
         storage,
-        mediaProbe,
-        new EventMediaProfilePolicy(),
-        new TestUploadSettings(maxFileSizeBytes, tempDir),
+        new UploadMediaValidator(
+            mediaProbe,
+            new EventMediaProfilePolicy(),
+            new TestUploadSettings(maxFileSizeBytes, tempDir)),
         uploadQueryService,
         TRANSACTION_MANAGER,
         CLOCK);

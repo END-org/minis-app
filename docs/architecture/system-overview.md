@@ -1,5 +1,8 @@
 # MINIS System Architecture Overview
 
+> This document describes the broader product architecture target. For the source tree and runtime
+> implemented in this checkout, see [`../architecture.md`](../architecture.md).
+
 **Status:** Active  
 **Owner:** Amr Bani Irshid  
 **Last Updated:** 2026-07-13

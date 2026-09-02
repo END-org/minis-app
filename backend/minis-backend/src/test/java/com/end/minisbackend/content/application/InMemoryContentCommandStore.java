@@ -1,7 +1,8 @@
 package com.end.minisbackend.content.application;
 
-import com.end.minisbackend.content.domain.ContentItem;
-import com.end.minisbackend.content.domain.ContentStatus;
+import com.end.minisbackend.content.application.port.ContentCommandStore;
+import com.end.minisbackend.content.domain.enums.ContentStatus;
+import com.end.minisbackend.content.domain.model.ContentItem;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

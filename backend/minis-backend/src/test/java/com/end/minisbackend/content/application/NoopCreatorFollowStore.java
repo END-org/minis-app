@@ -1,6 +1,6 @@
 package com.end.minisbackend.content.application;
 
-import com.end.minisbackend.creator.application.CreatorFollowStore;
+import com.end.minisbackend.creator.application.port.CreatorFollowStore;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

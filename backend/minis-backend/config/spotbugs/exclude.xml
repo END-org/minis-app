@@ -18,31 +18,39 @@
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.content.application.ContentReconciliationService"/>
+    <Class name="com.end.minisbackend.content.application.service.reconciliation.ContentReconciliationService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.content.application.CuratedContentImportService"/>
+    <Class name="com.end.minisbackend.content.application.service.importing.CuratedContentImportService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.content.application.PublicContentQueryService"/>
+    <Class name="com.end.minisbackend.content.infrastructure.importing.JacksonContentImportManifestReader"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.content.application.ContentInteractionService"/>
+    <Class name="com.end.minisbackend.content.application.service.feed.PublicContentQueryService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.content.application.ContentUploadService"/>
+    <Class name="com.end.minisbackend.content.application.service.feed.PublicContentAssembler"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.creator.application.CreatorFollowService"/>
+    <Class name="com.end.minisbackend.content.application.service.interaction.ContentInteractionService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
   <Match>
-    <Class name="com.end.minisbackend.creator.application.CreatorProfileQueryService"/>
+    <Class name="com.end.minisbackend.content.application.service.upload.ContentUploadService"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.creator.application.service.follow.CreatorFollowService"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Class name="com.end.minisbackend.creator.application.service.read.CreatorProfileQueryService"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
 </FindBugsFilter>

@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.end.minisbackend.TestTransactionManager;
-import com.end.minisbackend.content.domain.ContentCategory;
-import com.end.minisbackend.content.domain.ContentItem;
-import com.end.minisbackend.content.domain.ContentStatus;
+import com.end.minisbackend.content.application.model.reconciliation.ContentReconciliationSummary;
+import com.end.minisbackend.content.application.service.reconciliation.ContentReconciliationService;
+import com.end.minisbackend.content.domain.enums.ContentCategory;
+import com.end.minisbackend.content.domain.enums.ContentStatus;
+import com.end.minisbackend.content.domain.model.ContentItem;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

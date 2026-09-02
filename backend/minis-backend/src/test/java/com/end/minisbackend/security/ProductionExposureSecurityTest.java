@@ -6,12 +6,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.end.minisbackend.TestIdentities;
-import com.end.minisbackend.identity.application.BootstrapCurrentIdentityService;
-import com.end.minisbackend.identity.application.FirebaseTokenVerifier;
-import com.end.minisbackend.identity.application.LocalUserIdentity;
-import com.end.minisbackend.identity.application.LocalUserIdentityGateway;
-import com.end.minisbackend.identity.application.UserAccountProvisioningGateway;
-import com.end.minisbackend.user.application.CurrentUserService;
+import com.end.minisbackend.identity.application.model.LocalUserIdentity;
+import com.end.minisbackend.identity.application.port.FirebaseTokenVerifier;
+import com.end.minisbackend.identity.application.port.LocalUserIdentityGateway;
+import com.end.minisbackend.identity.application.port.UserAccountProvisioningGateway;
+import com.end.minisbackend.identity.application.service.BootstrapCurrentIdentityService;
+import com.end.minisbackend.user.application.service.CurrentUserService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

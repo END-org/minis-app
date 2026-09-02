@@ -3,8 +3,14 @@ package com.end.minisbackend.content.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.end.minisbackend.TestTransactionManager;
-import com.end.minisbackend.content.domain.ContentCategory;
-import com.end.minisbackend.creator.application.CreatorProfileQueryService;
+import com.end.minisbackend.content.application.model.importing.ContentImportSummary;
+import com.end.minisbackend.content.application.port.MediaProbe;
+import com.end.minisbackend.content.application.service.importing.CuratedContentImportService;
+import com.end.minisbackend.content.domain.enums.ContentCategory;
+import com.end.minisbackend.content.domain.model.media.MediaInspection;
+import com.end.minisbackend.content.domain.policy.EventMediaProfilePolicy;
+import com.end.minisbackend.content.infrastructure.importing.JacksonContentImportManifestReader;
+import com.end.minisbackend.creator.application.service.read.CreatorProfileQueryService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -241,7 +247,7 @@ class CuratedContentImportServiceTest {
         creatorService,
         mediaProbe,
         new EventMediaProfilePolicy(),
-        new ObjectMapper(),
+        new JacksonContentImportManifestReader(new ObjectMapper()),
         new TestTransactionManager(),
         CLOCK);
   }

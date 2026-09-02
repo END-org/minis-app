@@ -16,23 +16,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.end.minisbackend.TestIdentities;
-import com.end.minisbackend.admin.application.AdminUserPage;
-import com.end.minisbackend.admin.application.EventAdminService;
-import com.end.minisbackend.content.application.ContentAdministrationService;
-import com.end.minisbackend.content.application.ContentStorage;
-import com.end.minisbackend.content.application.SignedReadUrl;
-import com.end.minisbackend.identity.application.FirebaseTokenVerifier;
-import com.end.minisbackend.identity.application.LocalUserIdentity;
-import com.end.minisbackend.identity.application.LocalUserIdentityGateway;
-import com.end.minisbackend.identity.application.MinisPrincipal;
-import com.end.minisbackend.identity.application.ProvisionedUserAccount;
-import com.end.minisbackend.identity.application.UserAccountProvisioningGateway;
-import com.end.minisbackend.identity.domain.VerifiedFirebaseIdentity;
+import com.end.minisbackend.admin.application.model.AdminUserPage;
+import com.end.minisbackend.admin.application.service.AccountStatusAdministrationService;
+import com.end.minisbackend.admin.application.service.AdminUserQueryService;
+import com.end.minisbackend.admin.application.service.CreatorRoleAdministrationService;
+import com.end.minisbackend.admin.application.service.CreatorVerificationAdministrationService;
+import com.end.minisbackend.content.application.model.feed.SignedReadUrl;
+import com.end.minisbackend.content.application.port.ContentStorage;
+import com.end.minisbackend.content.application.service.administration.ContentAdministrationService;
+import com.end.minisbackend.identity.application.model.LocalUserIdentity;
+import com.end.minisbackend.identity.application.model.MinisPrincipal;
+import com.end.minisbackend.identity.application.model.ProvisionedUserAccount;
+import com.end.minisbackend.identity.application.port.FirebaseTokenVerifier;
+import com.end.minisbackend.identity.application.port.LocalUserIdentityGateway;
+import com.end.minisbackend.identity.application.port.UserAccountProvisioningGateway;
+import com.end.minisbackend.identity.domain.model.VerifiedFirebaseIdentity;
 import com.end.minisbackend.shared.error.ApiErrorCode;
 import com.end.minisbackend.shared.error.ApiException;
 import com.end.minisbackend.shared.security.CorrelationId;
 import com.end.minisbackend.shared.security.MinisAuthenticationException;
-import com.end.minisbackend.user.application.CurrentUserService;
+import com.end.minisbackend.user.application.service.CurrentUserService;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -65,7 +68,13 @@ class SecurityIntegrationTest {
   @MockitoBean private LocalUserIdentityGateway localUserIdentityGateway;
   @MockitoBean private UserAccountProvisioningGateway userAccountProvisioningGateway;
   @MockitoBean private CurrentUserService currentUserService;
-  @MockitoBean private EventAdminService eventAdminService;
+  @MockitoBean private AdminUserQueryService adminUserQueryService;
+  @MockitoBean private CreatorRoleAdministrationService creatorRoleAdministrationService;
+  @MockitoBean private AccountStatusAdministrationService accountStatusAdministrationService;
+
+  @MockitoBean
+  private CreatorVerificationAdministrationService creatorVerificationAdministrationService;
+
   @MockitoBean private ContentAdministrationService contentAdministrationService;
   @MockitoBean private ContentStorage contentStorage;
 
@@ -310,7 +319,11 @@ class SecurityIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, bearer("admin-blocked-viewer-token")))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code", is("ACCESS_DENIED")));
-    verifyNoInteractions(eventAdminService);
+    verifyNoInteractions(
+        adminUserQueryService,
+        creatorRoleAdministrationService,
+        accountStatusAdministrationService,
+        creatorVerificationAdministrationService);
     assertThat(output)
         .contains("event=security_access_denied")
         .contains("localUserId=" + viewer.id())
@@ -330,14 +343,18 @@ class SecurityIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, bearer("admin-blocked-creator-token")))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code", is("ACCESS_DENIED")));
-    verifyNoInteractions(eventAdminService);
+    verifyNoInteractions(
+        adminUserQueryService,
+        creatorRoleAdministrationService,
+        accountStatusAdministrationService,
+        creatorVerificationAdministrationService);
   }
 
   @Test
   void adminCanReachAdminRoutes() throws Exception {
     UUID adminId = UUID.randomUUID();
     registerToken("event-admin", Optional.of(new LocalUserIdentity(adminId, "ADMIN", "ACTIVE")));
-    when(eventAdminService.users(any(MinisPrincipal.class), any(), anyInt(), anyInt()))
+    when(adminUserQueryService.users(any(MinisPrincipal.class), any(), anyInt(), anyInt()))
         .thenReturn(new AdminUserPage(List.of(), 0, 20, false));
 
     mockMvc

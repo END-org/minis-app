@@ -1,9 +1,9 @@
 package com.end.minisbackend.content.application;
 
-import com.end.minisbackend.creator.application.CreatorDirectoryPage;
-import com.end.minisbackend.creator.application.CreatorProfileStore;
-import com.end.minisbackend.creator.application.CreatorProfileView;
-import com.end.minisbackend.creator.domain.CreatorProfile;
+import com.end.minisbackend.creator.application.model.CreatorDirectoryPage;
+import com.end.minisbackend.creator.application.model.CreatorProfileView;
+import com.end.minisbackend.creator.application.port.CreatorProfileStore;
+import com.end.minisbackend.creator.domain.model.CreatorProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

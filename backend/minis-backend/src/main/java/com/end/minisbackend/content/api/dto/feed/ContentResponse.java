@@ -1,0 +1,18 @@
+package com.end.minisbackend.content.api.dto.feed;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record ContentResponse(
+    UUID id,
+    ContentCreatorResponse creator,
+    String title,
+    String description,
+    String category,
+    String categoryLabel,
+    ContentMediaResponse media,
+    Instant publishedAt,
+    long likeCount,
+    boolean liked,
+    boolean saved,
+    boolean following) {}

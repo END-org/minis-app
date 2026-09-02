@@ -1,7 +1,7 @@
 package com.end.minisbackend.identity.infrastructure;
 
-import com.end.minisbackend.identity.application.FirebaseTokenVerifier;
-import com.end.minisbackend.identity.domain.VerifiedFirebaseIdentity;
+import com.end.minisbackend.identity.application.port.FirebaseTokenVerifier;
+import com.end.minisbackend.identity.domain.model.VerifiedFirebaseIdentity;
 import com.end.minisbackend.shared.error.ApiErrorCode;
 import com.end.minisbackend.shared.security.MinisAuthenticationException;
 import java.util.Map;

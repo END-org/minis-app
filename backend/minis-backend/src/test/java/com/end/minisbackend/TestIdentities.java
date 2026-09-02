@@ -1,6 +1,6 @@
 package com.end.minisbackend;
 
-import com.end.minisbackend.identity.domain.VerifiedFirebaseIdentity;
+import com.end.minisbackend.identity.domain.model.VerifiedFirebaseIdentity;
 import java.time.Instant;
 
 public final class TestIdentities {

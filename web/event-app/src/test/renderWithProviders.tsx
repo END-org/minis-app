@@ -11,9 +11,9 @@ import {
 } from "../core/auth/AuthSessionContext";
 import {
   BackendSessionContext,
-  BackendSessionProvider,
   type BackendSessionContextValue,
 } from "../features/account/BackendSessionContext";
+import { BackendSessionProvider } from "../features/account/BackendSessionProvider";
 
 interface RenderOptions {
   readonly apiClient?: ApiClient;

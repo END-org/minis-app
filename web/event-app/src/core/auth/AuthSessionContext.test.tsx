@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import type { User } from "firebase/auth";
 import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthSessionProvider, useAuthSession } from "./AuthSessionContext";
+import { useAuthSession } from "./AuthSessionContext";
+import { AuthSessionProvider } from "./AuthSessionProvider";
 
 const firebaseMocks = vi.hoisted(() => {
   const passwordUser = {

@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import "../shared/styles/global.css";
 import { AdminPreparationPage } from "../features/admin/AdminPreparationPage";
 import { AdminUserDetailPage } from "../features/admin/AdminUserDetailPage";
 import { RequireAdmin } from "../features/admin/RequireAdmin";
@@ -16,11 +17,12 @@ import { CreatorsDirectoryPage } from "../features/creators/CreatorsDirectoryPag
 import { ContentDetailPage } from "../features/feed/ContentDetailPage";
 import { LikedContentPage, SavedContentPage } from "../features/feed/ContentCollectionPage";
 import { FeedPage } from "../features/feed/FeedPage";
+import "../features/feed/content.css";
 import { MyUploadsPage } from "../features/uploads/MyUploadsPage";
 import { RequireCreator } from "../features/uploads/RequireCreator";
 import { UploadPage } from "../features/uploads/UploadPage";
+import "../features/uploads/uploads.css";
 import { EventShell } from "../shared/layout/EventShell";
-import "../shared/styles/global.css";
 import { AppProviders } from "./AppProviders";
 
 export function AppRoutes() {
